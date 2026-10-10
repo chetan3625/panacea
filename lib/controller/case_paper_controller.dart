@@ -1,642 +1,683 @@
-import 'dart:async';
 import 'dart:convert';
-
+import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:panacea/controller/auth_session.dart';
-import 'package:panacea/services/api_service.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import '../services/api_service.dart';
+import 'auth_session.dart';
 
 class CasePaperController extends GetxController {
-  // ─── Frame metadata ─────────────────────────────────────────────────────────
-  static const frames = [
-    'Demographics & Registry',
-    'Chief Complaints & Causation',
-    'Past History & CPS Timeline',
-    'Family History & Miasmatic Diathesis',
-    'Physical Generals & Dream Analysis',
-    'Female Lifecycle & Hormonal Transitions',
-    'Objective Examination & Findings',
-    'Mentals, Synthesis & Prescription',
+  static const List<String> frames = [
+    'Frame 1: Demographics & Registry',
+    'Frame 2: Chief Complaints & Causation',
+    'Frame 3: Past History',
+    'Frame 4: Family History & Miasm',
+    'Frame 5: Physical Generals & Modalities',
+    'Frame 6: Female History',
+    'Frame 7: Examination Findings',
+    'Frame 8: Mentals & Prescription',
   ];
 
-  // ─── Clinical pick-lists ────────────────────────────────────────────────────
-  static const locations = [
-    'Head', 'Eyes', 'Ears', 'Nose', 'Face', 'Throat', 'Neck',
-    'Chest / lungs', 'Heart / CVS', 'Abdomen', 'Liver / spleen',
-    'Kidney / bladder', 'Back / spine', 'Shoulders', 'Arms / elbows',
-    'Wrists / hands', 'Hips / thighs', 'Knees', 'Legs / ankles',
-    'Feet / toes', 'Skin', 'Nerves', 'Glands / lymph',
+  final List<String> casePaperTypes = const [
+    'Case Paper 1: Original Case Paper (Constitutional)',
+    'Case Paper 2: Acute Case Paper',
+    'Case Paper 3: Thyroid Case Paper',
   ];
+  var selectedCasePaperType =
+      'Case Paper 1: Original Case Paper (Constitutional)'.obs;
 
-  static const sensations = [
-    'Burning', 'Stitching', 'Throbbing / pulsating', 'Pressing / heavy',
-    'Cramping / spasmodic', 'Tearing / rending', 'Shooting / lightning',
-    'Numbness / tingling', 'Itching', 'Soreness / bruised', 'Constricting',
-    'Raw / excoriated', 'Fullness / bloating', 'Weakness / empty',
-  ];
+  // Backend tracking state
+  var currentPatientId = ''.obs;
+  var editingCasePaperId = ''.obs;
+  var isSaving = false.obs;
+  var isLoading = false.obs;
 
-  static const complaintModalities = [
-    'Motion >', 'Motion <', 'Rest >', 'Rest <',
-    'Pressure >', 'Pressure <', 'Heat >', 'Heat <',
-    'Cold >', 'Cold <', 'Morning <', 'Evening <', 'Night <',
-    'Eating >', 'Eating <', 'Lying down >', 'Lying down <',
-  ];
+  // ==========================================
+  // FRAME 1: Demographics & Registry
+  // ==========================================
+  final occupationController = TextEditingController();
+  final maritalStatusController = TextEditingController();
+  final referredByController = TextEditingController();
 
-  static const concomitants = [
-    'Nausea', 'Vomiting', 'Headache', 'Chill', 'Sweating', 'Palpitation',
-    'Weakness / fatigue', 'Anxiety', 'Thirst', 'Appetite loss', 'Diarrhoea',
-    'Constipation', 'Urinary urgency', 'Salivation', 'Lachrymation',
-  ];
+  var selectedMaritalStatus = 'Single'.obs;
+  var selectedOccupation = 'Desk Job / Corporate'.obs;
+  var selectedReferredBy = 'Self / Direct'.obs;
 
-  static const causationTags = [
-    'Grief', 'Fright', 'Shock', 'Mortification / humiliation', 'Anger',
-    'Suppressed emotions', 'Disappointed love', 'Financial losses',
-    'Overwork / mental strain', 'Intrinsic pathology', 'Extrinsic pathology',
-    'Puberty', 'Menarche', 'Pregnancy', 'Post-partum', 'Menopause',
-    'Vaccination', 'Suppressed eruptions', 'Suppressed discharge',
-  ];
+  // ==========================================
+  // FRAME 2: Chief Complaints & Causation (LSMC)
+  // ==========================================
+  final chiefComplaintsController = TextEditingController();
+  final causationJourneyController = TextEditingController();
 
-  static const pastMedicines = [
-    'Allopathic – long term', 'Allopathic – short course',
-    'Homeopathic', 'Ayurvedic', 'Steroids', 'Antibiotics – prolonged',
-    'Hormonal treatment (OCP / HRT)', 'Analgesics / NSAIDs',
-    'Immunosuppressants', 'Chemotherapy', 'Herbal / naturopathy',
-  ];
+  // Triggers & Transitions
+  var selectedEmotions = <String>[].obs;
+  var selectedEndocrinalInterventions = <String>[].obs;
+  var selectedCausationTags = <String>[].obs;
+  final historyOfMedicinesController = TextEditingController();
+  var medicineHistoryTags = <String>[].obs;
 
-  static const pastDiseases = [
-    'Typhoid', 'Cholera', 'Food poisoning', 'Worms / parasites',
-    'Diarrhoea / dysentery', 'Malnutrition', 'Rickets', 'Rheumatism',
-    'Malaria', 'Jaundice / hepatitis', 'Liver / gallbladder disease',
-    'Abortion / miscarriage', 'Hypertension', 'Giddiness / vertigo',
-    'Recurrent sinusitis', 'Tonsillitis', 'Bronchitis', 'Asthma / COPD',
-    'Nephritis / renal disease', 'Diabetes mellitus', 'Thyroid disorder',
-    'Major accident / trauma', 'Major surgery', 'Skin / eczema / fungus',
-    'Venereal / STI', 'Epilepsy / seizures', 'Psychiatric illness',
-  ];
+  // ==========================================
+  // CASE PAPER 2 & 3 SPECIFIC STATES (Acute, Thyroid & Follow-up)
+  // ==========================================
+  var acuteOnset = 'Sudden (Hours)'.obs;
+  var acuteCause = 'Cold Weather / Draught'.obs;
+  final acuteNotesController = TextEditingController();
 
-  static const familyDiseases = [
-    'Cancer', 'Diabetes mellitus', 'Rheumatoid arthritis', 'Tuberculosis',
-    'Leprosy', 'Epilepsy', 'Bleeding tendencies', 'Asthma', 'Hypertension',
-    'Heart disease / IHD', 'Kidney / renal disease', 'Liver disease',
-    'Psychiatric illness', 'Autoimmune disease', 'Thyroid disorder',
-  ];
+  var followUpStatus = 'Better (Ameliorated)'.obs;
+  var remedyReaction = 'Good Action - Continue Remedy'.obs;
+  final followUpNotesController = TextEditingController();
 
-  static const relatives = [
-    'Paternal grandfather', 'Paternal grandmother',
-    'Maternal grandfather', 'Maternal grandmother',
-    'Father', 'Mother', 'Siblings', 'Paternal uncle', 'Paternal aunt',
-    'Maternal uncle', 'Maternal aunt', 'Cousins',
-  ];
+  // THYROID CASE PAPER (Case Paper 3)
+  var thyroidDiagnosis = 'Hypothyroidism'.obs;
+  var thyroidOnsetTrigger = 'Puberty / Hormonal Phase'.obs;
+  var goitreLocation = 'Neck Swelling (Diffuse)'.obs;
+  var goitreSensation = 'Constriction / Air Passing'.obs;
+  var goitreModality = 'Swallowing Aggravation'.obs;
+  var physiqueEmaciation = 'Myxoedema / Puffy Physique'.obs;
 
-  static const miasms = ['Psora', 'Sycosis', 'Tubercular', 'Syphilitic', 'Mixed'];
+  final t3Controller = TextEditingController();
+  final t4Controller = TextEditingController();
+  final tshController = TextEditingController();
+  final antiTpoController = TextEditingController();
 
-  static const foodItems = [
-    'Sweet', 'Salt', 'Spicy', 'Sour', 'Bitter', 'Meat / non-veg',
-    'Milk / dairy', 'Eggs', 'Fish / seafood', 'Warm food', 'Cold food',
-    'Ice-cream', 'Bread / starch', 'Fruits', 'Vegetables', 'Fats / oily food',
-  ];
+  // ==========================================
+  // FRAME 3: Past History (CPS Timeline)
+  // ==========================================
+  var pastDiseases = <String>[].obs;
 
-  static const sweatTraits = [
-    'Staining yellow', 'Staining blue / green', 'Offensive odor',
-    'Sour odor', 'Profuse on palms / soles', 'Profuse on scalp',
-    'Cold sweat', 'Night sweats', 'One-sided sweat',
-  ];
+  // ==========================================
+  // FRAME 4: Family History & Miasm
+  // ==========================================
+  // Represents rows in the Family Matrix: { 'Father': ['HTN', 'Asthma'], 'Mother': ['DM'] }
+  var familyHistoryMatrix = <String, RxList<String>>{
+    'Paternal Grandfather': <String>[].obs,
+    'Paternal Grandmother': <String>[].obs,
+    'Maternal Grandfather': <String>[].obs,
+    'Maternal Grandmother': <String>[].obs,
+    'Father': <String>[].obs,
+    'Mother': <String>[].obs,
+    'Siblings': <String>[].obs,
+  }.obs;
 
-  static const stoolUrineTags = [
-    'Constipation – hard', 'Constipation – no urge', 'Loose stools',
-    'Mucus in stool', 'Blood in stool', 'Piles / haemorrhoids',
-    'Fissure', 'Incomplete evacuation', 'Offensive stool',
-    'Urinary urgency', 'Frequent urination', 'Scanty urine', 'Dark urine',
-    'Burning micturition', 'Involuntary urination',
-  ];
+  var selectedMiasm = 'Psora'.obs;
 
-  static const modalityStimuli = [
-    'Hot weather', 'Cold weather', 'Rainy / cloudy',
-    'Thunderstorm / lightning', 'Sun exposure', 'Sea shore / open air',
-    'Fanning / open window', 'Cold bathing', 'Warm bathing',
-    'Before eating', 'After eating', 'Eating', 'Lying down',
-    'Standing', 'Exercise / motion',
-  ];
+  // ==========================================
+  // FRAME 5: Physical Generals & Dreams
+  // ==========================================
+  var selectedThermals = 'Ambi-thermal'.obs;
+  var selectedThirst = 'Normal'.obs;
+  var selectedThirstTemp = 'Normal'.obs;
+  var sweatIntensity = 'Moderate'.obs;
 
-  static const Map<String, List<String>> dreamGroups = {
-    'Animals': ['Dogs', 'Cats', 'Snakes', 'Wild beasts / lions', 'Insects / worms', 'Birds'],
-    'Calamities': ['Robbers / thieves', 'Murder / violence', 'Falling from heights', 'Drowning', 'Ghost / supernatural', 'Fire / conflagration', 'War / battles'],
-    'Somatic / Physiological': ['Flying / floating', 'Swimming', 'Riding / racing', 'Water / rivers', 'Snow / cold', 'Death', 'Dead bodies', 'Urinating', 'Blood', 'Starving / hungry'],
-    'Psychological': ['Failures / disgrace', 'Missing train / bus', 'Being chased / pursued', 'Exams / tests', 'Nakedness / embarrassment', 'Parties / festivities', 'Accidents'],
+  // Quick Chips
+  var foodDesires = <String>[].obs;
+  var foodAversions = <String>[].obs;
+  var bowelUrineTraits = <String>[].obs;
+  var dreamCategories = <String>[].obs;
+
+  // Modality Matrix (+1 Amel, 0 Neutral, -1 Agg)
+  var modalities = <String, RxInt>{
+    'Hot Weather': 0.obs,
+    'Cold Weather': 0.obs,
+    'Rainy Weather': 0.obs,
+    'Cloudy Weather': 0.obs,
+    'Warm Bath': 0.obs,
+    'Cold Bath': 0.obs,
+    'Fanning': 0.obs,
+    'Sun Exposure': 0.obs,
   };
 
-  static const inspectionTags = [
-    'Tongue: coated white', 'Tongue: yellowish coat', 'Tongue: mapped / geographic',
-    'Tongue: flabby / teeth-imprinted', 'Tongue: dry cracked', 'Tongue: clean / red',
-    'Tongue: trembling', 'Teeth: carious / decayed', 'Teeth: sensitive',
-    'Nails: brittle / ridged', 'Nails: clubbing', 'Nails: white spots',
-    'Hair: thinning / falling', 'Hair: premature graying', 'Hair: dry / lusterless',
-    'Skin: dry / rough', 'Skin: oily', 'Skin: jaundiced tint', 'Skin: pallor',
-    'Lymph nodes: cervical enlarged', 'Lymph nodes: axillary enlarged', 'Lymph nodes: inguinal enlarged',
-    'Joints: swelling', 'Joints: crepitus', 'Joints: restricted motion',
+  // ==========================================
+  // FRAME 6: Female History & Hormonal Cycles
+  // ==========================================
+  final menarcheAgeController = TextEditingController();
+  var isCycleRegular = 'Regular'.obs;
+  var menstrualFlow = 'Normal'.obs;
+  var leucorrhoeaTags = <String>[].obs;
+  var mensesConcomitants = <String>[].obs;
+
+  // ==========================================
+  // FRAME 7: Examination Findings
+  // ==========================================
+  final weightController = TextEditingController();
+  final heightController = TextEditingController();
+  final bpController = TextEditingController();
+  final pulseController = TextEditingController();
+  var objectiveInspectionTags = <String>[].obs;
+
+  // ==========================================
+  // FRAME 8: Mentals, Rubrics & Prescription
+  // ==========================================
+  var mentalRubrics = <String>[].obs;
+  final prescriptionNotesController = TextEditingController();
+
+  // Dynamic Prescription List
+  var prescribedMedicines = <Map<String, dynamic>>[].obs;
+  int _nextMedicineId = 0;
+
+  // ==========================================
+  // REFERENCE DICTIONARIES (For Zero-Typing UI)
+  // ==========================================
+  final List<String> pastDiseaseOptions = [
+    'Typhoid',
+    'Cholera',
+    'Malaria',
+    'Jaundice',
+    'Chicken Pox',
+    'Mumps',
+    'Food Poisoning',
+    'Worms',
+    'Diarrhoea',
+    'Asthma',
+    'Pleurisy/TB',
+    'Nephritis',
+    'Diabetes',
+    'Rheumatism',
+    'Polio',
+    'Epilepsy',
+    'Eczema/Fungus',
   ];
 
-  static const mentalRubrics = [
-    'Irritable / easily offended', 'Consolation aggravates',
-    'Fear of dark', 'Fear of death', 'Fear of disease', 'Fear of poverty',
-    'Weeping easily', 'Weeping without cause',
-    'Hurried / restless', 'Conscientious about trifles',
-    'Suspicious / mistrustful', 'Jealousy', 'Brooding / dwelling on past',
-    'Haughtiness / contemptuous', 'Sympathetic / empathetic',
-    'Indifferent / apathetic', 'Anxiety about health', 'Anxiety before events',
-    'Company desires', 'Company aversion', 'Aversion to family / husband',
-    'Religious / scrupulous', 'Alternating moods',
+  final List<String> dreamOptions = [
+    'Animals/Dogs/Snakes',
+    'Robbers/Thieves',
+    'Ghosts/Fearful',
+    'Travelling/Flying',
+    'Houses/Water',
+    'Death/Dead Bodies',
+    'Accident/Falling',
+    'Business/Money',
+    'Weeping/Grief',
+    'Police/Murder',
+    'Missing Train/Exams',
+    'Romantic/Sexual',
   ];
 
-  static const repertorialRubrics = [
-    'Ailments from grief', 'Ailments from fright',
-    'Ailments from suppressed anger', 'Ailments from disappointed love',
-    'Fear of dark', 'Fear of death', 'Consolation aggravates',
-    'Company aversion to', 'Anticipation – complaints from',
-    'Irritability before menses', 'Weeping tendency',
-    'Hurried feeling', 'Indifference to everything',
-    'Censorious / critical', 'Delusion – persecuted',
+  final List<String> mentalOptions = [
+    'Irritable',
+    'Anger',
+    'Anxious',
+    'Suspicious',
+    'Fearful',
+    'Jealousy',
+    'Impatient',
+    'Hurried',
+    'Revengeful',
+    'Brooding',
+    'Weeping',
+    'Sympathetic',
+    'Diligent',
+    'Depression',
   ];
 
-  static const potencies = ['3X', '6C', '30C', '200C', '1M', '10M', 'CM', 'LM1', 'LM2', 'LM3'];
-  static const doseTypes = ['Pills (4)', 'Pills (6)', 'Drops (5)', 'Drops (10)', 'Liquid (teaspoon)', 'Powder'];
-  static const frequencies = [
-    'Once daily', 'Twice daily', 'Three times daily', 'Four times daily',
-    'Every alternate day', 'Once weekly', 'Twice weekly', 'As needed (SOS)',
-    'Single dose', 'Ascending doses',
+  final List<String> miasmOptions = [
+    'Psora',
+    'Sycosis',
+    'Tubercular',
+    'Syphilis',
+    'Mixed',
   ];
 
-  // ─── Homeopathic remedy list ─────────────────────────────────────────────
-  static const remedies = [
-    'Aconite napellus', 'Aethusa', 'Agnus castus', 'Allium cepa',
-    'Aloe socotrina', 'Alumina', 'Ambra grisea', 'Ammonium carb',
-    'Anacardium', 'Antimonium crud', 'Antimonium tart', 'Apis mellifica',
-    'Argentum nit', 'Arnica montana', 'Arsenicum album', 'Aurum met',
-    'Baptisia', 'Baryta carb', 'Belladonna', 'Borax',
-    'Bryonia alba', 'Calcarea carb', 'Calcarea fluor', 'Calcarea phos',
-    'Cantharis', 'Carbo animalis', 'Carbo veg', 'Causticum',
-    'Chamomilla', 'China officinalis', 'Cimicifuga', 'Colocynthis',
-    'Conium mac', 'Cuprum met', 'Drosera', 'Dulcamara',
-    'Ferrum met', 'Ferrum phos', 'Gelsemium', 'Graphites',
-    'Hepar sulph', 'Hyoscyamus', 'Ignatia', 'Iodium',
-    'Ipecacuanha', 'Kali bich', 'Kali carb', 'Kali mur',
-    'Kali phos', 'Lachesis', 'Ledum pal', 'Lilium tig',
-    'Lycopodium', 'Magnesia carb', 'Magnesia mur', 'Medorrhinum',
-    'Mercurius sol', 'Mezereum', 'Murex', 'Natrum carb',
-    'Natrum mur', 'Natrum sulph', 'Nitric acid', 'Nux moschata',
-    'Nux vomica', 'Opium', 'Phosphoric acid', 'Phosphorus',
-    'Phytolacca', 'Platina', 'Plumbum met', 'Podophyllum',
-    'Psorinum', 'Pulsatilla', 'Rhus tox', 'Rumex',
-    'Ruta grav', 'Sabadilla', 'Secale cor', 'Sepia',
-    'Silicea', 'Spongia', 'Staphysagria', 'Stramonium',
-    'Sulphur', 'Syphilinum', 'Tarentula hisp', 'Thuja',
-    'Tuberculinum', 'Veratrum alb', 'Zincum met',
-  ];
-
-  // ─── Observable state ────────────────────────────────────────────────────────
-  final patient   = <String, dynamic>{}.obs;
-  final papers    = <Map<String, dynamic>>[].obs;
-  final draft     = <String, dynamic>{}.obs;
-  final medicineEntries = <Map<String, dynamic>>[].obs;
-  final currentFrame    = 0.obs;
-  final isSaving        = false.obs;
-  final autosaveStatus  = 'Draft not saved'.obs;
-  final isFemale        = false.obs;
-
-  String? token;
-  String? editingId;
-  bool isNewPaper = true;
-  Timer? _autosaveTimer;
-
-  // ─── Draft persistence keys ───────────────────────────────────────────────
-  String get _newDraftKey =>
-      'panacea.casePaperDraft.${patient['_id'] ?? 'unknown'}.new';
-  String _existingDraftKey(String id) =>
-      'panacea.casePaperDraft.${patient['_id'] ?? 'unknown'}.$id';
-
-  // ─── Lifecycle ────────────────────────────────────────────────────────────
-  @override
-  void onInit() {
-    super.onInit();
-    final args = Get.arguments;
-    if (args is Map) {
-      token = args['token']?.toString();
-      final patArg = args['patient'];
-      if (patArg is Map) patient.assignAll(Map<String, dynamic>.from(patArg));
-      final paperArg = args['paper'];
-      if (paperArg is Map) {
-        final paper = Map<String, dynamic>.from(paperArg);
-        editingId = (paper['caseId'] ?? paper['_id'])?.toString();
-        isNewPaper = false;
-        final data = paper['data'];
-        if (data is Map) draft.assignAll(Map<String, dynamic>.from(data));
-      }
-      final pp = patient['casePapers'];
-      if (pp is List) {
-        papers.assignAll(pp.whereType<Map>().map(Map<String, dynamic>.from));
-      }
-    }
-    if (token == null && Get.isRegistered<AuthSession>()) {
-      token = Get.find<AuthSession>().token.value;
-    }
-    if (draft.isEmpty) _initializeNewDraft();
-    isFemale.value = _genderIsFemale;
-    _loadMedicineEntries();
-    unawaited(_restoreLocalDraft());
-  }
-
-  // ─── Computed helpers ─────────────────────────────────────────────────────
-  bool get _genderIsFemale =>
-      (draft['gender']?.toString().toLowerCase() ?? '') == 'female';
-
-  int get completedFrameCount =>
-      List.generate(frames.length, isFrameComplete).where((d) => d).length;
-
-  double? get bmi {
-    final w = double.tryParse(draft['weight']?.toString() ?? '');
-    final h = double.tryParse(draft['height']?.toString() ?? '');
-    if (w == null || h == null || h <= 0) return null;
-    final hm = h / 100;
-    return w / (hm * hm);
-  }
-
-  bool isFrameComplete(int index) {
-    if (index == 5 && !isFemale.value) return true;
-    const keys = [
-      ['date', 'name', 'age', 'gender'],
-      ['chiefComplaint', 'causationTags'],
-      ['cpsTimeline'],
-      ['familyDiseases', 'miasm'],
-      ['thermal', 'dreamTags'],
-      ['menarcheAge', 'cycleRhythm'],
-      ['pulse', 'weight'],
-      ['mentalTags', 'prescriptionMedicines'],
-    ];
-    for (final key in keys[index]) {
-      final value = draft[key];
-      if (value is String && value.trim().isNotEmpty) return true;
-      if (value is List && value.isNotEmpty) return true;
-      if (value is Map && value.isNotEmpty) return true;
-    }
-    return false;
-  }
-
-  // ─── Draft initialisation ─────────────────────────────────────────────────
-  void _initializeNewDraft() {
-    editingId ??= DateTime.now().microsecondsSinceEpoch.toString();
-    isNewPaper = true;
-    draft.assignAll({
-      // Frame 1 – Demographics
-      'date': DateTime.now().toIso8601String().split('T').first,
-      'caseId': '',
-      'name': patient['name']?.toString() ?? '',
-      'age': patient['age']?.toString() ?? '',
-      'gender': patient['gender']?.toString() ?? '',
-      'mobile': patient['mobile']?.toString() ?? '',
-      'address': patient['address']?.toString() ?? '',
-      'occupation': '',
-      'maritalStatus': '',
-      'referredBy': '',
-      // Frame 2 – Complaints
-      'chiefComplaint': '',
-      'onsetDate': '',
-      'onsetDuration': '',
-      'locations': <String>[],
-      'sensations': <String>[],
-      'complaintModalities': <String>[],
-      'concomitants': <String>[],
-      'causationTags': <String>[],
-      'pastMedicines': <String>[],
-      'primaryKeynote': '',
-      'causationJourneyNotes': '',
-      // Frame 3 – Past history
-      'pastDiseasesTags': <String>[],
-      'cpsTimeline': <Map<String, dynamic>>[],
-      'surgicalHistory': '',
-      'pastHistoryNotes': '',
-      // Frame 4 – Family / miasm
-      'familyDiseases': <String>[],
-      'relativeHistory': <String, dynamic>{},
-      'miasm': '',
-      'miasmNotes': '',
-      // Frame 5 – Generals
-      'foodDesires': <String>[],
-      'foodAversions': <String>[],
-      'foodAggravations': <String>[],
-      'thermal': '',
-      'thirst': '',
-      'waterTemperature': '',
-      'sweatIntensity': 1,
-      'sweatTraits': <String>[],
-      'stoolUrineTags': <String>[],
-      'modalities': <String, String>{},
-      'dreamTags': <String>[],
-      'generalsNotes': '',
-      // Frame 6 – Female
-      'menarcheAge': '',
-      'cycleDays': '',
-      'cyclePeriodDays': '',
-      'cycleRhythm': '',
-      'flowCharacter': <String>[],
-      'menstrualTiming': <String, String>{},
-      'leucorrhoeaColor': <String>[],
-      'leucorrhoeaTraits': <String>[],
-      'pregnancies': 0,
-      'liveChildren': 0,
-      'abortions': 0,
-      'dnc': 0,
-      'lactationMonths': 0,
-      'ocpUse': '',
-      'obstetricNotes': '',
-      // Frame 7 – Examination
-      'pulse': '',
-      'bloodPressure': '',
-      'respiratoryRate': '',
-      'temperature': '',
-      'weight': '',
-      'height': '',
-      'inspectionTags': <String>[],
-      'eyes': '',
-      'ears': '',
-      'nose': '',
-      'throat': '',
-      'respiratory': '',
-      'cvs': '',
-      'git': '',
-      'cns': '',
-      'objectiveFindings': '',
-      // Frame 8 – Mentals + prescription
-      'mentalTags': <String>[],
-      'mentalNotes': '',
-      'rubrics': <String>[],
-      'repertorizationNotes': '',
-      'remedyDifferential': '',
-      'prescriptionMedicines': <Map<String, dynamic>>[],
-      'followUpDate': '',
-      'followUpNotes': '',
-      'doctorConclusion': '',
-    });
-    isFemale.value = _genderIsFemale;
-  }
-
-  Future<void> _restoreLocalDraft() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final key = isNewPaper ? _newDraftKey : _existingDraftKey(editingId ?? '');
-      final encoded = prefs.getString(key);
-      if (encoded == null) return;
-      final decoded = jsonDecode(encoded);
-      if (decoded is! Map || decoded['data'] is! Map) return;
-      draft.assignAll(Map<String, dynamic>.from(decoded['data'] as Map));
-      isFemale.value = _genderIsFemale;
-      _loadMedicineEntries();
-      autosaveStatus.value = 'Draft Auto-saved';
-    } catch (_) {
-      autosaveStatus.value = 'Draft not saved';
-    }
-  }
-
-  // ─── Field mutations ──────────────────────────────────────────────────────
-  void updateField(String key, dynamic value) {
-    draft[key] = value;
-    if (key == 'gender') isFemale.value = _genderIsFemale;
-    _queueAutosave();
-  }
-
-  void toggleSelection(String key, String value) {
-    final s = _strings(draft[key]);
-    if (!s.add(value)) s.remove(value);
-    draft[key] = s.toList();
-    _queueAutosave();
-  }
-
-  Set<String> selectedValues(String key) => _strings(draft[key]);
-
-  void assignSelection(String key, Iterable<String> values) {
-    draft[key] = values.toSet().toList();
-    _queueAutosave();
-  }
-
-  void setSingleValue(String key, String value) {
-    draft[key] = value;
-    _queueAutosave();
-  }
-
-  void setModality(String stimulus, String value) {
-    final m = Map<String, String>.from(
-      (draft['modalities'] as Map?)?.map((k, v) => MapEntry(k.toString(), v.toString())) ?? {},
-    );
-    m[stimulus] = value;
-    draft['modalities'] = m;
-    _queueAutosave();
-  }
-
-  String modalityFor(String stimulus) =>
-      ((draft['modalities'] as Map?)?[stimulus] ?? '0').toString();
-
-  void setMenstrualTiming(String symptom, String timing) {
-    final m = Map<String, String>.from(
-      (draft['menstrualTiming'] as Map?)?.map((k, v) => MapEntry(k.toString(), v.toString())) ?? {},
-    );
-    m[symptom] = timing;
-    draft['menstrualTiming'] = m;
-    _queueAutosave();
-  }
-
-  String menstrualTimingFor(String symptom) =>
-      ((draft['menstrualTiming'] as Map?)?[symptom] ?? '').toString();
-
-  void updateRelative(String relationship, String field, dynamic value) {
-    final h = Map<String, dynamic>.from((draft['relativeHistory'] as Map?) ?? {});
-    final r = Map<String, dynamic>.from((h[relationship] as Map?) ?? {});
-    r[field] = value;
-    h[relationship] = r;
-    draft['relativeHistory'] = h;
-    _queueAutosave();
-  }
-
-  // ─── CPS timeline ─────────────────────────────────────────────────────────
-  void addCpsEntry({
-    required String disease,
-    required int year,
-    required String etiology,
-    required String severity,
-    required String symptomStatus,
-  }) {
-    final entries = _mapList(draft['cpsTimeline']);
-    entries.add({
-      'disease': disease,
-      'year': year,
-      'etiology': etiology,
-      'severity': severity,
-      'symptomStatus': symptomStatus,
-    });
-    draft['cpsTimeline'] = entries;
-    toggleSelection('pastDiseasesTags', disease);
-    _queueAutosave();
-  }
-
-  void removeCpsEntry(int index) {
-    final entries = _mapList(draft['cpsTimeline']);
-    if (index < 0 || index >= entries.length) return;
-    entries.removeAt(index);
-    draft['cpsTimeline'] = entries;
-    _queueAutosave();
-  }
-
-  // ─── Medicine entries ─────────────────────────────────────────────────────
+  // ==========================================
+  // ACTIONS
+  // ==========================================
   void addMedicine() {
-    medicineEntries.add({
+    prescribedMedicines.add({
+      'id': '${_nextMedicineId++}',
       'name': '',
       'potency': '30C',
-      'dose': 'Pills (4)',
-      'frequency': 'Once daily',
-      'duration': '',
-      'notes': '',
+      'dosage': '',
     });
-    _syncMedicines();
-  }
-
-  void updateMedicine(int index, String key, dynamic value) {
-    if (index < 0 || index >= medicineEntries.length) return;
-    medicineEntries[index][key] = value;
-    medicineEntries.refresh();
-    _syncMedicines();
   }
 
   void removeMedicine(int index) {
-    if (index < 0 || index >= medicineEntries.length) return;
-    medicineEntries.removeAt(index);
-    _syncMedicines();
+    prescribedMedicines.removeAt(index);
   }
 
-  void _loadMedicineEntries() {
-    medicineEntries.assignAll(_mapList(draft['prescriptionMedicines']));
+  void updateMedicine(int index, String key, String value) {
+    prescribedMedicines[index][key] = value;
+    prescribedMedicines.refresh();
   }
 
-  void _syncMedicines() {
-    draft['prescriptionMedicines'] = medicineEntries
-        .map((m) => Map<String, dynamic>.from(m))
-        .toList();
-    _queueAutosave();
+  // ==========================================
+  // BACKEND SERIALIZATION & DESERIALIZATION
+  // ==========================================
+  Map<String, dynamic> toJson() {
+    return {
+      'patientId': currentPatientId.value,
+      'paperType': selectedCasePaperType.value,
+      'caseId': editingCasePaperId.value,
+      'demographics': {
+        'maritalStatus': selectedMaritalStatus.value,
+        'occupation': occupationController.text,
+        'referredBy': selectedReferredBy.value,
+      },
+      'chiefComplaints': chiefComplaintsController.text,
+      'causation': causationJourneyController.text,
+      'historyOfMedicines': historyOfMedicinesController.text,
+      'endocrinalInterventions': selectedEndocrinalInterventions.toList(),
+      'pastDiseases': pastDiseases.toList(),
+      'familyHistoryMatrix': familyHistoryMatrix.map(
+        (key, rxList) => MapEntry(key, rxList.toList()),
+      ),
+      'miasm': selectedMiasm.value,
+      'physicalGenerals': {
+        'thermals': selectedThermals.value,
+        'thirst': selectedThirst.value,
+        'thirstTemp': selectedThirstTemp.value,
+        'sweatIntensity': sweatIntensity.value,
+        'bowelUrineTraits': bowelUrineTraits.toList(),
+        'dreamCategories': dreamCategories.toList(),
+        'modalities': modalities.map((key, rxInt) => MapEntry(key, rxInt.value)),
+      },
+      'femaleHistory': {
+        'menarcheAge': menarcheAgeController.text,
+        'isCycleRegular': isCycleRegular.value,
+        'menstrualFlow': menstrualFlow.value,
+        'mensesConcomitants': mensesConcomitants.toList(),
+        'leucorrhoeaTags': leucorrhoeaTags.toList(),
+      },
+      'examination': {
+        'bp': bpController.text,
+        'pulse': pulseController.text,
+        'weight': weightController.text,
+        'height': heightController.text,
+        'inspectionTags': objectiveInspectionTags.toList(),
+      },
+      'mentals': mentalRubrics.toList(),
+      'prescription': prescribedMedicines.map((m) => {
+        'name': m['name'] ?? '',
+        'potency': m['potency'] ?? '30C',
+        'dosage': m['dosage'] ?? '',
+      }).toList(),
+      'prescriptionNotes': prescriptionNotesController.text,
+      'acuteDetails': {
+        'onsetSpeed': acuteOnset.value,
+        'excitingCause': acuteCause.value,
+        'notes': acuteNotesController.text,
+      },
+      'thyroidDetails': {
+        'diagnosis': thyroidDiagnosis.value,
+        'onsetTrigger': thyroidOnsetTrigger.value,
+        'goitreLocation': goitreLocation.value,
+        'goitreSensation': goitreSensation.value,
+        'goitreModality': goitreModality.value,
+        'physiqueEmaciation': physiqueEmaciation.value,
+        't3': t3Controller.text,
+        't4': t4Controller.text,
+        'tsh': tshController.text,
+        'antiTpo': antiTpoController.text,
+      },
+    };
   }
 
-  // ─── Auto-save ────────────────────────────────────────────────────────────
-  void _queueAutosave() {
-    autosaveStatus.value = 'Saving draft…';
-    _autosaveTimer?.cancel();
-    _autosaveTimer = Timer(const Duration(milliseconds: 700), saveLocally);
-  }
-
-  Future<void> saveLocally() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final key = isNewPaper ? _newDraftKey : _existingDraftKey(editingId ?? '');
-      await prefs.setString(key, jsonEncode({
-        'caseId': editingId,
-        'data': Map<String, dynamic>.from(draft),
-      }));
-      autosaveStatus.value = 'Draft Auto-saved';
-    } catch (_) {
-      autosaveStatus.value = 'Draft save failed';
+  void loadCasePaper(Map<String, dynamic> data, String patientId) {
+    currentPatientId.value = patientId;
+    editingCasePaperId.value =
+        data['_id']?.toString() ?? data['caseId']?.toString() ?? '';
+    if (data['paperType']?.toString().isNotEmpty == true) {
+      selectedCasePaperType.value = data['paperType'].toString();
     }
-  }
 
-  // ─── Remote save ──────────────────────────────────────────────────────────
-  Future<bool> saveToPatient({bool showFeedback = true}) async {
-    final patientId = patient['_id']?.toString();
-    if (patientId == null || patientId.isEmpty) {
-      if (showFeedback) Get.snackbar('Save blocked', 'Save the patient profile first.');
-      return false;
-    }
-    if (token == null || token!.isEmpty) {
-      if (showFeedback) Get.snackbar('Session expired', 'Please sign in again.');
-      return false;
-    }
-    isSaving.value = true;
-    _autosaveTimer?.cancel();
-    try {
-      final nextPapers = papers.map(Map<String, dynamic>.from).toList();
-      final idx = nextPapers.indexWhere(
-        (p) => (p['caseId'] ?? p['_id'])?.toString() == editingId,
+    final demographics = data['demographics'] is Map
+        ? data['demographics'] as Map
+        : {};
+    selectedMaritalStatus.value =
+        demographics['maritalStatus']?.toString() ?? 'Single';
+    occupationController.text = demographics['occupation']?.toString() ?? '';
+    selectedReferredBy.value =
+        demographics['referredBy']?.toString() ?? 'Self / Direct';
+
+    chiefComplaintsController.text = data['chiefComplaints']?.toString() ?? '';
+    causationJourneyController.text = data['causation']?.toString() ?? '';
+    historyOfMedicinesController.text =
+        data['historyOfMedicines']?.toString() ?? '';
+
+    if (data['endocrinalInterventions'] is List) {
+      selectedEndocrinalInterventions.assignAll(
+        (data['endocrinalInterventions'] as List).cast<String>(),
       );
-      final record = <String, dynamic>{
-        if (idx >= 0) ...nextPapers[idx],
-        'paperType': '1',
-        'caseId': editingId,
-        'data': Map<String, dynamic>.from(draft),
-      };
-      if (idx >= 0) nextPapers[idx] = record; else nextPapers.add(record);
+    }
+    if (data['pastDiseases'] is List) {
+      pastDiseases.assignAll((data['pastDiseases'] as List).cast<String>());
+    }
 
-      final response = await ApiService.put('/patients/$patientId', {
-        'casePapers': nextPapers,
-      }, token: token);
-      if (response.statusCode == 401 || response.statusCode == 403) {
-        await Get.find<AuthSession>().signOut();
+    if (data['familyHistoryMatrix'] is Map) {
+      final matrix = data['familyHistoryMatrix'] as Map;
+      matrix.forEach((key, val) {
+        if (familyHistoryMatrix.containsKey(key) && val is List) {
+          familyHistoryMatrix[key]!.assignAll(val.cast<String>());
+        }
+      });
+    }
+    selectedMiasm.value = data['miasm']?.toString() ?? 'Psora';
+
+    final phys = data['physicalGenerals'] is Map
+        ? data['physicalGenerals'] as Map
+        : {};
+    selectedThermals.value = phys['thermals']?.toString() ?? 'Ambi-thermal';
+    selectedThirst.value = phys['thirst']?.toString() ?? 'Normal';
+    selectedThirstTemp.value = phys['thirstTemp']?.toString() ?? 'Normal';
+    sweatIntensity.value = phys['sweatIntensity']?.toString() ?? 'Moderate';
+    if (phys['bowelUrineTraits'] is List) {
+      bowelUrineTraits.assignAll(
+        (phys['bowelUrineTraits'] as List).cast<String>(),
+      );
+    }
+    if (phys['dreamCategories'] is List) {
+      dreamCategories.assignAll(
+        (phys['dreamCategories'] as List).cast<String>(),
+      );
+    }
+    if (phys['modalities'] is Map) {
+      (phys['modalities'] as Map).forEach((k, v) {
+        if (modalities.containsKey(k)) {
+          modalities[k]!.value =
+              (v is int) ? v : (int.tryParse(v.toString()) ?? 0);
+        }
+      });
+    }
+
+    final fem = data['femaleHistory'] is Map
+        ? data['femaleHistory'] as Map
+        : {};
+    menarcheAgeController.text = fem['menarcheAge']?.toString() ?? '';
+    isCycleRegular.value = fem['isCycleRegular']?.toString() ?? 'Regular';
+    menstrualFlow.value = fem['menstrualFlow']?.toString() ?? 'Normal';
+    if (fem['mensesConcomitants'] is List) {
+      mensesConcomitants.assignAll(
+        (fem['mensesConcomitants'] as List).cast<String>(),
+      );
+    }
+    if (fem['leucorrhoeaTags'] is List) {
+      leucorrhoeaTags.assignAll(
+        (fem['leucorrhoeaTags'] as List).cast<String>(),
+      );
+    }
+
+    final exam = data['examination'] is Map
+        ? data['examination'] as Map
+        : {};
+    bpController.text = exam['bp']?.toString() ?? '';
+    pulseController.text = exam['pulse']?.toString() ?? '';
+    weightController.text = exam['weight']?.toString() ?? '';
+    heightController.text = exam['height']?.toString() ?? '';
+    if (exam['inspectionTags'] is List) {
+      objectiveInspectionTags.assignAll(
+        (exam['inspectionTags'] as List).cast<String>(),
+      );
+    }
+
+    if (data['mentals'] is List) {
+      mentalRubrics.assignAll((data['mentals'] as List).cast<String>());
+    }
+
+    if (data['prescription'] is List) {
+      prescribedMedicines.assignAll(
+        (data['prescription'] as List).map((m) {
+          final map = m is Map ? m : {};
+          return {
+            'id': '${_nextMedicineId++}',
+            'name': map['name']?.toString() ?? '',
+            'potency': map['potency']?.toString() ?? '30C',
+            'dosage': map['dosage']?.toString() ?? '',
+          };
+        }).toList(),
+      );
+    }
+    prescriptionNotesController.text =
+        data['prescriptionNotes']?.toString() ?? '';
+
+    final acute = data['acuteDetails'] is Map
+        ? data['acuteDetails'] as Map
+        : {};
+    acuteOnset.value = acute['onsetSpeed']?.toString() ?? 'Sudden (Hours)';
+    acuteCause.value =
+        acute['excitingCause']?.toString() ?? 'Cold Draught / Wind';
+    acuteNotesController.text = acute['notes']?.toString() ?? '';
+
+    final thyroid = data['thyroidDetails'] is Map
+        ? data['thyroidDetails'] as Map
+        : {};
+    thyroidDiagnosis.value =
+        thyroid['diagnosis']?.toString() ?? 'Hypothyroidism';
+    thyroidOnsetTrigger.value =
+        thyroid['onsetTrigger']?.toString() ?? 'Puberty / Hormonal Phase';
+    goitreLocation.value =
+        thyroid['goitreLocation']?.toString() ?? 'Neck Swelling (Diffuse)';
+    goitreSensation.value =
+        thyroid['goitreSensation']?.toString() ?? 'Constriction / Air Passing';
+    goitreModality.value =
+        thyroid['goitreModality']?.toString() ?? 'Swallowing Aggravation';
+    physiqueEmaciation.value =
+        thyroid['physiqueEmaciation']?.toString() ?? 'Myxoedema / Puffy Physique';
+    t3Controller.text = thyroid['t3']?.toString() ?? '';
+    t4Controller.text = thyroid['t4']?.toString() ?? '';
+    tshController.text = thyroid['tsh']?.toString() ?? '';
+    antiTpoController.text = thyroid['antiTpo']?.toString() ?? '';
+  }
+
+  void resetForm(String patientId, {String? paperType}) {
+    currentPatientId.value = patientId;
+    editingCasePaperId.value = '';
+    if (paperType != null && paperType.isNotEmpty) {
+      selectedCasePaperType.value = paperType;
+    } else {
+      selectedCasePaperType.value = casePaperTypes[0];
+    }
+    selectedMaritalStatus.value = 'Single';
+    occupationController.clear();
+    maritalStatusController.clear();
+    referredByController.clear();
+    selectedReferredBy.value = 'Self / Direct';
+    chiefComplaintsController.clear();
+    causationJourneyController.clear();
+    historyOfMedicinesController.clear();
+    selectedEmotions.clear();
+    selectedEndocrinalInterventions.clear();
+    selectedCausationTags.clear();
+    medicineHistoryTags.clear();
+    pastDiseases.clear();
+    familyHistoryMatrix.forEach((key, val) => val.clear());
+    selectedMiasm.value = 'Psora';
+    selectedThermals.value = 'Ambi-thermal';
+    selectedThirst.value = 'Normal';
+    selectedThirstTemp.value = 'Normal';
+    sweatIntensity.value = 'Moderate';
+    foodDesires.clear();
+    foodAversions.clear();
+    bowelUrineTraits.clear();
+    dreamCategories.clear();
+    modalities.forEach((key, val) => val.value = 0);
+    menarcheAgeController.clear();
+    isCycleRegular.value = 'Regular';
+    menstrualFlow.value = 'Normal';
+    leucorrhoeaTags.clear();
+    mensesConcomitants.clear();
+    weightController.clear();
+    heightController.clear();
+    bpController.clear();
+    pulseController.clear();
+    objectiveInspectionTags.clear();
+    mentalRubrics.clear();
+    prescribedMedicines.clear();
+    prescriptionNotesController.clear();
+    acuteOnset.value = 'Sudden (Hours)';
+    acuteCause.value = 'Cold Weather / Draught';
+    acuteNotesController.clear();
+    followUpStatus.value = 'Better (Ameliorated)';
+    remedyReaction.value = 'Good Action - Continue Remedy';
+    followUpNotesController.clear();
+    thyroidDiagnosis.value = 'Hypothyroidism';
+    thyroidOnsetTrigger.value = 'Puberty / Hormonal Phase';
+    goitreLocation.value = 'Neck Swelling (Diffuse)';
+    goitreSensation.value = 'Constriction / Air Passing';
+    goitreModality.value = 'Swallowing Aggravation';
+    physiqueEmaciation.value = 'Myxoedema / Puffy Physique';
+    t3Controller.clear();
+    t4Controller.clear();
+    tshController.clear();
+    antiTpoController.clear();
+  }
+
+  // ==========================================
+  // BACKEND API METHODS (CRUD)
+  // ==========================================
+  Future<bool> saveCasePaper() async {
+    if (currentPatientId.value.isEmpty) {
+      Get.snackbar(
+        'Error',
+        'Patient ID is required to save a Case Paper',
+        backgroundColor: Colors.redAccent,
+        colorText: Colors.white,
+      );
+      return false;
+    }
+
+    isSaving.value = true;
+    try {
+      final token = Get.isRegistered<AuthSession>()
+          ? Get.find<AuthSession>().token.value
+          : null;
+      final payload = toJson();
+      final isEditing = editingCasePaperId.value.isNotEmpty;
+      final endpoint = isEditing
+          ? '/case-papers/${editingCasePaperId.value}'
+          : '/case-papers';
+
+      final response = isEditing
+          ? await ApiService.put(endpoint, payload, token: token)
+          : await ApiService.post(endpoint, payload, token: token);
+
+      final data = jsonDecode(response.body);
+
+      if (response.statusCode >= 200 && response.statusCode < 300) {
+        Get.snackbar(
+          'Success',
+          isEditing
+              ? 'Case Paper updated successfully'
+              : 'Case Paper created successfully',
+          backgroundColor: Colors.green.shade600,
+          colorText: Colors.white,
+        );
+        return true;
+      } else {
+        Get.snackbar(
+          'Save Failed',
+          data['message'] ?? 'Failed to save Case Paper',
+          backgroundColor: Colors.redAccent,
+          colorText: Colors.white,
+        );
         return false;
       }
-      final result = jsonDecode(response.body);
-      if (response.statusCode < 200 || response.statusCode >= 300) {
-        throw Exception(result['message'] ?? 'Could not save case paper.');
-      }
-      if (result is Map && result['patient'] is Map) {
-        patient.assignAll(Map<String, dynamic>.from(result['patient'] as Map));
-        final sp = patient['casePapers'];
-        if (sp is List) papers.assignAll(sp.whereType<Map>().map(Map<String, dynamic>.from));
-      } else {
-        papers.assignAll(nextPapers);
-      }
-      try {
-        final prefs = await SharedPreferences.getInstance();
-        await prefs.remove(isNewPaper ? _newDraftKey : _existingDraftKey(editingId ?? ''));
-      } catch (_) {}
-      autosaveStatus.value = 'Saved to patient record';
-      if (showFeedback) Get.snackbar('Saved', 'Case Paper 1 saved.');
-      return true;
     } catch (e) {
-      autosaveStatus.value = 'Save failed';
-      if (showFeedback) Get.snackbar('Save failed', e.toString());
+      Get.snackbar(
+        'Error',
+        'Failed to connect to backend server: $e',
+        backgroundColor: Colors.redAccent,
+        colorText: Colors.white,
+      );
       return false;
     } finally {
       isSaving.value = false;
     }
   }
 
-  Future<void> switchToPaper(Map<String, dynamic>? paper) async {
-    await saveLocally();
-    if (paper == null) {
-      editingId = DateTime.now().microsecondsSinceEpoch.toString();
-      isNewPaper = true;
-      currentFrame.value = 0;
-      draft.clear();
-      medicineEntries.clear();
-      _initializeNewDraft();
-      autosaveStatus.value = 'Draft not saved';
-      return;
+  Future<Map<String, dynamic>?> fetchCasePaperById(String casePaperId) async {
+    isLoading.value = true;
+    try {
+      final token = Get.isRegistered<AuthSession>()
+          ? Get.find<AuthSession>().token.value
+          : null;
+      final response =
+          await ApiService.get('/case-papers/$casePaperId', token: token);
+      final data = jsonDecode(response.body);
+
+      if (response.statusCode >= 200 && response.statusCode < 300) {
+        final paper = data['casePaper'] is Map
+            ? Map<String, dynamic>.from(data['casePaper'] as Map)
+            : null;
+        if (paper != null && currentPatientId.value.isNotEmpty) {
+          loadCasePaper(paper, currentPatientId.value);
+        }
+        return paper;
+      } else {
+        Get.snackbar(
+          'Fetch Failed',
+          data['message'] ?? 'Could not load Case Paper details',
+          backgroundColor: Colors.redAccent,
+          colorText: Colors.white,
+        );
+        return null;
+      }
+    } catch (e) {
+      Get.snackbar(
+        'Error',
+        'Failed to fetch Case Paper: $e',
+        backgroundColor: Colors.redAccent,
+        colorText: Colors.white,
+      );
+      return null;
+    } finally {
+      isLoading.value = false;
     }
-    final data = paper['data'];
-    editingId = (paper['caseId'] ?? paper['_id'])?.toString();
-    isNewPaper = false;
-    currentFrame.value = 0;
-    draft.assignAll(data is Map ? Map<String, dynamic>.from(data) : {});
-    isFemale.value = _genderIsFemale;
-    _loadMedicineEntries();
-    autosaveStatus.value = 'Saved to patient record';
-    await _restoreLocalDraft();
   }
 
-  // ─── Utilities ────────────────────────────────────────────────────────────
-  Set<String> _strings(dynamic value) => value is Iterable
-      ? value.map((e) => e.toString()).toSet()
-      : <String>{};
+  Future<bool> deleteCasePaper(String casePaperId) async {
+    try {
+      final token = Get.isRegistered<AuthSession>()
+          ? Get.find<AuthSession>().token.value
+          : null;
+      final response =
+          await ApiService.delete('/case-papers/$casePaperId', token: token);
+      final data = jsonDecode(response.body);
 
-  List<Map<String, dynamic>> _mapList(dynamic value) => value is Iterable
-      ? value.whereType<Map>().map(Map<String, dynamic>.from).toList()
-      : <Map<String, dynamic>>[];
+      if (response.statusCode >= 200 && response.statusCode < 300) {
+        Get.snackbar(
+          'Deleted',
+          'Case Paper deleted successfully',
+          backgroundColor: Colors.green.shade600,
+          colorText: Colors.white,
+        );
+        return true;
+      } else {
+        Get.snackbar(
+          'Delete Failed',
+          data['message'] ?? 'Could not delete Case Paper',
+          backgroundColor: Colors.redAccent,
+          colorText: Colors.white,
+        );
+        return false;
+      }
+    } catch (e) {
+      Get.snackbar(
+        'Error',
+        'Failed to delete Case Paper: $e',
+        backgroundColor: Colors.redAccent,
+        colorText: Colors.white,
+      );
+      return false;
+    }
+  }
 
   @override
   void onClose() {
-    _autosaveTimer?.cancel();
+    occupationController.dispose();
+    maritalStatusController.dispose();
+    referredByController.dispose();
+    chiefComplaintsController.dispose();
+    causationJourneyController.dispose();
+    historyOfMedicinesController.dispose();
+    menarcheAgeController.dispose();
+    weightController.dispose();
+    heightController.dispose();
+    bpController.dispose();
+    pulseController.dispose();
+    prescriptionNotesController.dispose();
+    acuteNotesController.dispose();
+    followUpNotesController.dispose();
+    t3Controller.dispose();
+    t4Controller.dispose();
+    tshController.dispose();
+    antiTpoController.dispose();
     super.onClose();
   }
 }

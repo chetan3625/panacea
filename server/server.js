@@ -6,6 +6,8 @@ const morgan = require("morgan");
 const connectDB = require("./config/db");
 const authRoutes = require("./routes/authRoutes");
 const patientRoutes = require("./routes/patientRoutes");
+const casePaperRoutes = require("./routes/casePaperRoutes");
+const followUpRoutes = require("./routes/followUpRoutes");
 
 const app = express();
 
@@ -31,6 +33,8 @@ app.get("/api/health", (req, res) => {
 
 app.use("/api/auth", authRoutes);
 app.use("/api/patients", patientRoutes);
+app.use("/api/case-papers", casePaperRoutes);
+app.use("/api/follow-ups", followUpRoutes);
 
 app.use((err, req, res, next) => {
   console.error(err.stack);

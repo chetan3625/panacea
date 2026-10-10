@@ -6,23 +6,27 @@ import 'mobile/patient_profile_mobile.dart';
 class PatientProfilePage extends StatelessWidget {
   final String patientName;
   final String mobileNumber;
+  final Map<String, dynamic> patient;
 
   const PatientProfilePage({
     super.key,
     required this.patientName,
     required this.mobileNumber,
+    this.patient = const {},
   });
 
   @override
   Widget build(BuildContext context) => LayoutBuilder(
-    builder: (context, constraints) => constraints.maxWidth >= 1100
+    builder: (context, constraints) => constraints.maxWidth >= 900
         ? PatientProfilePageDesktop(
             patientName: patientName,
             mobileNumber: mobileNumber,
+            patient: patient,
           )
         : PatientProfilePageMobile(
             patientName: patientName,
             mobileNumber: mobileNumber,
+            patient: patient,
           ),
   );
 }

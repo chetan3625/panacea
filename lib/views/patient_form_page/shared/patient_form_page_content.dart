@@ -1,13 +1,14 @@
 import 'dart:convert';
-
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:panacea/constants/app_routes.dart';
 import 'package:intl/intl.dart';
 import 'package:panacea/constants/theme.dart';
 import 'package:panacea/controller/auth_session.dart';
+import 'package:panacea/controller/case_paper_controller.dart';
 import 'package:panacea/services/api_service.dart';
 import 'package:panacea/services/perscription_pdf_service.dart';
+import 'package:panacea/theme/app_widgets.dart';
 
 class PatientFormPageContent extends StatefulWidget {
   const PatientFormPageContent({super.key});
@@ -117,6 +118,7 @@ class _PatientFormPageContentState extends State<PatientFormPageContent> {
   Future<void> _submitPatient({
     required bool generatePdf,
     bool startCasePaper = false,
+    String? paperType,
   }) async {
     if (_nameController.text.trim().isEmpty ||
         _mobileController.text.trim().isEmpty) {
@@ -182,12 +184,19 @@ class _PatientFormPageContentState extends State<PatientFormPageContent> {
             'Patient was saved, but could not open the case paper.',
           );
         }
+        final controller = Get.isRegistered<CasePaperController>()
+            ? Get.find<CasePaperController>()
+            : Get.put(CasePaperController());
+        final patientId = savedPatient['_id']?.toString() ?? '';
+        controller.resetForm(patientId, paperType: paperType);
+
         await Get.toNamed(
-          AppRoutes.casePapers,
+          AppRoutes.casePaperForm,
           arguments: {
             'token': _token,
             'patient': Map<String, dynamic>.from(savedPatient),
-            'startNew': true,
+            'patientId': patientId,
+            'paperType': paperType,
           },
         );
       }
@@ -243,20 +252,21 @@ class _PatientFormPageContentState extends State<PatientFormPageContent> {
       appBar: AppBar(
         title: Text(_patient == null ? 'New Consultation' : 'Edit Patient'),
       ),
+      bottomNavigationBar: _buildStickyActions(),
       body: SizedBox(
         height: double.infinity,
         width: double.infinity,
         child: LayoutBuilder(
           builder: (context, constraints) {
-            final isCompact = constraints.maxWidth < 600;
+            final isCompact = constraints.maxWidth < 900;
             final isDesktop = constraints.maxWidth >= 1100;
             return SingleChildScrollView(
               child: ConstrainedBox(
                 constraints: BoxConstraints(minHeight: constraints.maxHeight),
                 child: Center(
                   child: Container(
-                    constraints: BoxConstraints(
-                      maxWidth: isDesktop ? 1580 : 800,
+                    constraints: const BoxConstraints(
+                      maxWidth: 1200,
                     ),
                     width: double.infinity,
                     padding: EdgeInsets.symmetric(
@@ -344,102 +354,6 @@ class _PatientFormPageContentState extends State<PatientFormPageContent> {
                         ],
                         const SizedBox(height: 24),
 
-                        // --- Action Buttons ---
-                        isCompact
-                            ? Column(
-                                crossAxisAlignment: CrossAxisAlignment.stretch,
-                                children: [
-                                  OutlinedButton.icon(
-                                    onPressed: _isSaving
-                                        ? null
-                                        : () => _submitPatient(
-                                            generatePdf: false,
-                                          ),
-                                    icon: const Icon(Icons.save),
-                                    label: const Text('Save record'),
-                                  ),
-                                  const SizedBox(height: 12),
-                                  OutlinedButton.icon(
-                                    onPressed: _isSaving
-                                        ? null
-                                        : () => _submitPatient(
-                                            generatePdf: false,
-                                            startCasePaper: true,
-                                          ),
-                                    icon: const Icon(Icons.assignment_outlined),
-                                    label: const Text(
-                                      'Save & start Case Paper 1',
-                                    ),
-                                  ),
-                                  const SizedBox(height: 12),
-                                  FilledButton.icon(
-                                    onPressed: _isSaving
-                                        ? null
-                                        : () =>
-                                              _submitPatient(generatePdf: true),
-                                    icon: _isSaving
-                                        ? const SizedBox.square(
-                                            dimension: 18,
-                                            child: CircularProgressIndicator(
-                                              strokeWidth: 2,
-                                            ),
-                                          )
-                                        : const Icon(Icons.picture_as_pdf),
-                                    label: Text(
-                                      _isSaving
-                                          ? 'Saving…'
-                                          : 'Save & generate PDF',
-                                    ),
-                                  ),
-                                ],
-                              )
-                            : Wrap(
-                                alignment: WrapAlignment.end,
-                                spacing: 12,
-                                runSpacing: 12,
-                                children: [
-                                  OutlinedButton.icon(
-                                    onPressed: _isSaving
-                                        ? null
-                                        : () => _submitPatient(
-                                            generatePdf: false,
-                                          ),
-                                    icon: const Icon(Icons.save),
-                                    label: const Text('Save record'),
-                                  ),
-                                  OutlinedButton.icon(
-                                    onPressed: _isSaving
-                                        ? null
-                                        : () => _submitPatient(
-                                            generatePdf: false,
-                                            startCasePaper: true,
-                                          ),
-                                    icon: const Icon(Icons.assignment_outlined),
-                                    label: const Text(
-                                      'Save & start Case Paper 1',
-                                    ),
-                                  ),
-                                  FilledButton.icon(
-                                    onPressed: _isSaving
-                                        ? null
-                                        : () =>
-                                              _submitPatient(generatePdf: true),
-                                    icon: _isSaving
-                                        ? const SizedBox.square(
-                                            dimension: 18,
-                                            child: CircularProgressIndicator(
-                                              strokeWidth: 2,
-                                            ),
-                                          )
-                                        : const Icon(Icons.picture_as_pdf),
-                                    label: Text(
-                                      _isSaving
-                                          ? 'Saving…'
-                                          : 'Save & generate PDF',
-                                    ),
-                                  ),
-                                ],
-                              ),
                         const SizedBox(height: 40),
                       ],
                     ),
@@ -510,12 +424,7 @@ class _PatientFormPageContentState extends State<PatientFormPageContent> {
                 if (isCompact) ...[
                   _buildTextField(_ageController, 'Age', isNumber: true),
                   const SizedBox(height: 14),
-                  _buildDropdown(
-                    'Gender',
-                    ['Male', 'Female', 'Other'],
-                    _selectedGender,
-                    (value) => setState(() => _selectedGender = value),
-                  ),
+                  _buildGenderChips(),
                   const SizedBox(height: 14),
                   _buildDropdown(
                     'Blood group',
@@ -535,12 +444,7 @@ class _PatientFormPageContentState extends State<PatientFormPageContent> {
                       ),
                       const SizedBox(width: 10),
                       Expanded(
-                        child: _buildDropdown(
-                          'Gender',
-                          ['Male', 'Female', 'Other'],
-                          _selectedGender,
-                          (value) => setState(() => _selectedGender = value),
-                        ),
+                        child: _buildGenderChips(),
                       ),
                       const SizedBox(width: 10),
                       Expanded(
@@ -796,6 +700,105 @@ class _PatientFormPageContentState extends State<PatientFormPageContent> {
         );
       }).toList(),
       onChanged: onChanged,
+    );
+  }
+
+  Widget _buildStickyActions() {
+    final isCompact = MediaQuery.sizeOf(context).width < 600;
+    final primary = FilledButton.icon(
+      onPressed: _isSaving ? null : () => _submitPatient(generatePdf: false),
+      icon: _isSaving ? const SizedBox.square(dimension: 18, child: CircularProgressIndicator(strokeWidth: 2)) : const Icon(Icons.check),
+      label: Text(_patient == null ? 'Save patient' : 'Save changes'),
+    );
+    if (isCompact) {
+      return SafeArea(top: false, child: Container(
+        padding: const EdgeInsets.fromLTRB(12, 8, 12, 10),
+        decoration: const BoxDecoration(color: Colors.white, border: Border(top: BorderSide(color: AppColors.border))),
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          Row(children: [TextButton(onPressed: () => Get.back(), child: const Text('Cancel')), const Spacer(), Flexible(child: primary)]),
+          Align(alignment: Alignment.centerRight, child: _buildSaveAndStartCasePaperButton()),
+        ]),
+      ));
+    }
+    return StickyBottomBar(children: [
+      TextButton(onPressed: () => Get.back(), child: const Text('Cancel')),
+      const Spacer(),
+      _buildSaveAndStartCasePaperButton(),
+      const SizedBox(width: 8),
+      primary,
+    ]);
+  }
+
+  Widget _buildGenderChips() => Wrap(spacing: 6, children: [
+    for (final value in ['Male', 'Female', 'Other'])
+      ChoiceChip(
+        label: Text(value),
+        selected: _selectedGender == value,
+        showCheckmark: false,
+        onSelected: (_) => setState(() => _selectedGender = value),
+      ),
+  ]);
+
+  Widget _buildSaveAndStartCasePaperButton() {
+    return PopupMenuButton<String>(
+      enabled: !_isSaving,
+      tooltip: 'Select Case Paper Type',
+      onSelected: (type) {
+        String paperType;
+        if (type == 'pdf') {
+          _submitPatient(generatePdf: true);
+          return;
+        }
+        if (type == 'cp2') {
+          paperType = 'Case Paper 2: Acute Case Paper';
+        } else if (type == 'cp3') {
+          paperType = 'Case Paper 3: Thyroid Case Paper';
+        } else {
+          paperType = 'Case Paper 1: Original Case Paper (Constitutional)';
+        }
+        _submitPatient(
+          generatePdf: false,
+          startCasePaper: true,
+          paperType: paperType,
+        );
+      },
+      itemBuilder: (context) => const [
+        PopupMenuItem(value: 'pdf', child: ListTile(contentPadding: EdgeInsets.zero, leading: Icon(Icons.picture_as_pdf_outlined), title: Text('Save and generate PDF'))),
+        PopupMenuDivider(),
+        PopupMenuItem(
+          value: 'cp1',
+          child: ListTile(
+            contentPadding: EdgeInsets.zero,
+            leading: Icon(Icons.note_alt_outlined, color: AppColors.primary),
+            title: Text('Case Paper 1: Original Case Paper'),
+            subtitle: Text('Constitutional Comprehensive Intake'),
+          ),
+        ),
+        PopupMenuItem(
+          value: 'cp2',
+          child: ListTile(
+            contentPadding: EdgeInsets.zero,
+            leading: Icon(Icons.flash_on_outlined, color: AppColors.warning),
+            title: Text('Case Paper 2: Acute Case Paper'),
+            subtitle: Text('Sudden Onset & Acute Complaints'),
+          ),
+        ),
+        PopupMenuItem(
+          value: 'cp3',
+          child: ListTile(
+            contentPadding: EdgeInsets.zero,
+            leading: Icon(Icons.health_and_safety_outlined, color: AppColors.success),
+            title: Text('Case Paper 3: Thyroid Case Paper'),
+            subtitle: Text('Thyroid & Hormonal Investigation'),
+          ),
+        ),
+      ],
+      child: OutlinedButton.icon(
+        onPressed: null,
+        style: OutlinedButton.styleFrom(disabledForegroundColor: AppColors.primary, padding: const EdgeInsets.symmetric(horizontal: 10)),
+        icon: const Icon(Icons.assignment_outlined, size: 18),
+        label: const Text('Save & start Case Paper'),
+      ),
     );
   }
 }

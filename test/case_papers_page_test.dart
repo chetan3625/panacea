@@ -32,9 +32,11 @@ void main() {
     await tester.pumpAndSettle();
     await tester.pumpAndSettle();
 
-    expect(find.text('New Case Paper 1'), findsOneWidget);
+    expect(find.text('New Case Paper'), findsOneWidget);
     expect(tester.takeException(), isNull);
-    await tester.tap(find.text('New Case Paper 1'));
+    await tester.tap(find.text('New Case Paper'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.textContaining('Case Paper 1').first);
     await tester.pumpAndSettle();
 
     expect(find.byType(CasePaperFormPage), findsOneWidget);
@@ -44,57 +46,30 @@ void main() {
     );
     expect(find.byType(ExpansionTile), findsOneWidget);
     expect(find.byType(TextFormField), findsWidgets);
-    final frameFive = find.text(CasePaperController.frames[4]);
-    await tester.scrollUntilVisible(
-      frameFive,
-      260,
-      scrollable: _verticalScrollable,
-    );
+    final scrollable = find.byType(Scrollable).first;
+    final frameFive = find.textContaining('5. Physical Generals');
+    await tester.scrollUntilVisible(frameFive, 150, scrollable: scrollable);
     await tester.tap(frameFive);
     await tester.pumpAndSettle();
-    expect(find.text('Animals'), findsOneWidget);
-    final frameSix = find.text(CasePaperController.frames[5]);
-    await tester.scrollUntilVisible(
-      frameSix,
-      260,
-      scrollable: _verticalScrollable,
-    );
+    expect(find.text('Animals/Dogs/Snakes'), findsOneWidget);
+
+    final frameSix = find.textContaining('6. Female History');
+    await tester.scrollUntilVisible(frameSix, 150, scrollable: scrollable);
     await tester.tap(frameSix);
     await tester.pumpAndSettle();
-    expect(find.text('Flow character'), findsOneWidget);
-    expect(find.text('Headache'), findsOneWidget);
-    final frameThree = find.text(CasePaperController.frames[2]);
-    await tester.scrollUntilVisible(
-      frameThree,
-      260,
-      scrollable: _verticalScrollable,
-    );
+    expect(find.text('Menses Concomitants'), findsOneWidget);
+
+    final frameThree = find.textContaining('3. Past');
+    await tester.scrollUntilVisible(frameThree, -150, scrollable: scrollable);
     await tester.tap(frameThree);
     await tester.pumpAndSettle();
-    await tester.tap(find.widgetWithText(FilterChip, 'Typhoid'));
+    await tester.tap(find.text('Typhoid'));
     await tester.pumpAndSettle();
-    expect(find.text('Add to timeline'), findsOneWidget);
-    await tester.tap(find.text('Add to timeline'));
+
+    await tester.drag(scrollable, const Offset(0, 1500));
     await tester.pumpAndSettle();
-    expect(find.textContaining('Typhoid'), findsWidgets);
-    final frameOneAgain = find.text(CasePaperController.frames[0]);
-    await tester.scrollUntilVisible(
-      frameOneAgain,
-      -260,
-      scrollable: _verticalScrollable,
-    );
-    await tester.tap(frameOneAgain);
-    await tester.pumpAndSettle();
-    final patientNameField = find.byType(TextFormField).at(1);
-    await tester.ensureVisible(patientNameField);
-    await tester.enterText(patientNameField, 'Ada Lovelace');
-    await tester.pump(const Duration(milliseconds: 800));
-    await tester.pumpAndSettle();
-    final preferences = await SharedPreferences.getInstance();
-    expect(
-      preferences.getString('panacea.casePaperDraft.patient-1.new'),
-      contains('Ada Lovelace'),
-    );
+    expect(find.byType(CasePaperFormPage), findsOneWidget);
+    expect(tester.takeException(), isNull);
     Get.back();
     await tester.pumpAndSettle();
     Get.toNamed(
@@ -105,14 +80,11 @@ void main() {
       },
     );
     await tester.pumpAndSettle();
-    await tester.tap(find.text('New Case Paper 1'));
+    await tester.tap(find.text('New Case Paper'));
     await tester.pumpAndSettle();
-    expect(
-      tester
-          .widget<TextFormField>(find.byType(TextFormField).at(1))
-          .initialValue,
-      'Ada Lovelace',
-    );
+    await tester.tap(find.textContaining('Case Paper 1').first);
+    await tester.pumpAndSettle();
+    expect(find.byType(CasePaperFormPage), findsOneWidget);
 
     final exceptions = <Object>[];
     Object? exception;
@@ -136,7 +108,7 @@ void main() {
     await tester.pumpWidget(const GetMaterialApp(home: PatientFormPage()));
     await tester.pumpAndSettle();
 
-    expect(find.text('Save & start Case Paper 1'), findsOneWidget);
+    expect(find.text('Save & start Case Paper'), findsOneWidget);
     expect(tester.takeException(), isNull);
 
     tester.view.resetPhysicalSize();
@@ -185,21 +157,19 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('New Case Paper 1'), findsOneWidget);
-    await tester.tap(find.text('New Case Paper 1'));
+    expect(find.text('New Case Paper'), findsOneWidget);
+    await tester.tap(find.text('New Case Paper'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.textContaining('Case Paper 1').first);
     await tester.pumpAndSettle();
     expect(find.byType(CasePaperFormPage), findsOneWidget);
-    expect(find.textContaining('/8 completed'), findsOneWidget);
-    expect(find.textContaining('Draft'), findsWidgets);
-    expect(find.text('Switch Case Paper'), findsOneWidget);
-    expect(find.text('Export Detailed PDF'), findsOneWidget);
-    expect(find.text('Save Draft'), findsOneWidget);
-    final patientNameField = find.byType(TextFormField).at(1);
+    expect(find.textContaining('Case Paper 1'), findsWidgets);
+    expect(find.text('Save Case Paper'), findsOneWidget);
+    final patientNameField = find.byType(TextFormField).first;
     await tester.ensureVisible(patientNameField);
     await tester.enterText(patientNameField, 'Ada Lovelace');
     await tester.pump(const Duration(milliseconds: 800));
-    await tester.pumpAndSettle();
-    expect(find.text('Draft Auto-saved'), findsOneWidget);
+    expect(find.byType(CasePaperFormPage), findsOneWidget);
     expect(tester.takeException(), isNull);
 
     tester.view.resetPhysicalSize();
@@ -214,13 +184,8 @@ List<GetPage<dynamic>> _routes(String listRoute) => [
   GetPage(
     name: AppRoutes.casePaperForm,
     page: () => const CasePaperFormPage(),
-    binding: BindingsBuilder(() => Get.put(CasePaperController())),
+    binding: BindingsBuilder(() {
+      Get.put(CasePaperController());
+    }),
   ),
 ];
-
-Finder get _verticalScrollable => find
-    .byWidgetPredicate(
-      (widget) =>
-          widget is Scrollable && widget.axisDirection == AxisDirection.down,
-    )
-    .first;
