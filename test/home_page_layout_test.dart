@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
 import 'package:panacea/controller/auth_session.dart';
-import 'package:panacea/views/home_page.dart';
+import 'package:panacea/views/home_page/home_page.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();

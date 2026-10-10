@@ -3,10 +3,10 @@ import 'package:get/get.dart';
 import 'package:lottie/lottie.dart';
 import 'package:panacea/components/common_components.dart';
 import 'package:panacea/controller/auth_controller.dart';
-import '../components/gradient_background.dart';
+import 'package:panacea/components/gradient_background.dart';
 
-class LoginPage extends StatelessWidget {
-  const LoginPage({super.key});
+class LoginPageContent extends StatelessWidget {
+  const LoginPageContent({super.key});
 
   @override
   Widget build(BuildContext context) {

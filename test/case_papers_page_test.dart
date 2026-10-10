@@ -3,9 +3,9 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
 import 'package:panacea/constants/app_routes.dart';
 import 'package:panacea/controller/case_paper_controller.dart';
-import 'package:panacea/views/case_paper_form_page.dart';
-import 'package:panacea/views/case_papers_page.dart';
-import 'package:panacea/views/patient_form_page.dart';
+import 'package:panacea/views/case_paper_form_page/case_paper_form_page.dart';
+import 'package:panacea/views/case_papers_page/case_papers_page.dart';
+import 'package:panacea/views/patient_form_page/patient_form_page.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {

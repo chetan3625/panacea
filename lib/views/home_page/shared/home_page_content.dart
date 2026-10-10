@@ -5,8 +5,8 @@ import 'package:panacea/constants/app_routes.dart';
 import 'package:panacea/controller/home_controller.dart';
 import 'package:panacea/controller/auth_session.dart';
 
-class HomePage extends StatelessWidget {
-  const HomePage({super.key});
+class HomePageContent extends StatelessWidget {
+  const HomePageContent({super.key});
 
   @override
   Widget build(BuildContext context) {

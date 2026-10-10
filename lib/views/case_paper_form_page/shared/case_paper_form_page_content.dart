@@ -5,10 +5,10 @@ import 'package:panacea/controller/case_paper_controller.dart';
 import 'package:panacea/services/case_paper_pdf_service.dart';
 
 // ══════════════════════════════════════════════════════════════════════════════
-// CasePaperFormPage – entry point (StatelessWidget shell)
+// CasePaperFormPageContent – entry point (StatelessWidget shell)
 // ══════════════════════════════════════════════════════════════════════════════
-class CasePaperFormPage extends StatelessWidget {
-  const CasePaperFormPage({super.key});
+class CasePaperFormPageContent extends StatelessWidget {
+  const CasePaperFormPageContent({super.key});
 
   @override
   Widget build(BuildContext context) {

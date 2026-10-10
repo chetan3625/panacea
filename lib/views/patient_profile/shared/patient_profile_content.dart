@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import 'package:panacea/views/patient_form_page.dart';
+import 'package:panacea/views/patient_form_page/patient_form_page.dart';
 
-class PatientProfilePage extends StatelessWidget {
+class PatientProfilePageContent extends StatelessWidget {
   final String patientName;
   final String mobileNumber;
 
-  const PatientProfilePage({
+  const PatientProfilePageContent({
     super.key,
     required this.patientName,
     required this.mobileNumber,

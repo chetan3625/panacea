@@ -9,7 +9,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:panacea/main.dart';
-import 'package:panacea/views/patient_form_page.dart';
+import 'package:panacea/views/patient_form_page/patient_form_page.dart';
 
 void main() {
   testWidgets('navigates through login, OTP, dashboard, and patient form', (
@@ -48,9 +48,7 @@ void main() {
   testWidgets('patient form stays laid out while editing and adding medicine', (
     WidgetTester tester,
   ) async {
-    await tester.pumpWidget(
-      const MaterialApp(home: PatientFormPage()),
-    );
+    await tester.pumpWidget(const MaterialApp(home: PatientFormPage()));
 
     final mobileField = find.byType(TextFormField).first;
     await tester.tap(mobileField);

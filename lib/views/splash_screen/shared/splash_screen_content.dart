@@ -2,17 +2,18 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:video_player/video_player.dart';
 
-import '../constants/app_routes.dart';
-import '../controller/auth_session.dart';
+import 'package:panacea/constants/app_routes.dart';
+import 'package:panacea/controller/auth_session.dart';
 
-class SplashScreenPage extends StatefulWidget {
-  const SplashScreenPage({super.key});
+class SplashScreenPageContent extends StatefulWidget {
+  const SplashScreenPageContent({super.key});
 
   @override
-  State<SplashScreenPage> createState() => _SplashScreenPageState();
+  State<SplashScreenPageContent> createState() =>
+      _SplashScreenPageContentState();
 }
 
-class _SplashScreenPageState extends State<SplashScreenPage>
+class _SplashScreenPageContentState extends State<SplashScreenPageContent>
     with SingleTickerProviderStateMixin {
   late final VideoPlayerController _controller;
   late final AnimationController _animationController;

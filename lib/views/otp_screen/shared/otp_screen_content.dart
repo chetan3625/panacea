@@ -3,10 +3,10 @@ import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:lottie/lottie.dart';
 import 'package:panacea/controller/otp_controller.dart';
-import '../components/gradient_background.dart';
+import 'package:panacea/components/gradient_background.dart';
 
-class OtpPage extends StatelessWidget {
-  const OtpPage({
+class OtpPageContent extends StatelessWidget {
+  const OtpPageContent({
     super.key,
   }); // No longer needs to pass mobileNumber in constructor
 

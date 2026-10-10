@@ -1,12 +1,12 @@
 import 'package:get/get.dart';
-import '../views/login_page.dart';
-import '../views/otp_screen.dart';
-import '../views/home_page.dart';
-import '../views/patient_form_page.dart';
-import '../views/case_papers_page.dart';
-import '../views/case_paper_form_page.dart';
+import '../views/login_page/login_page.dart';
+import '../views/otp_screen/otp_screen.dart';
+import '../views/home_page/home_page.dart';
+import '../views/patient_form_page/patient_form_page.dart';
+import '../views/case_papers_page/case_papers_page.dart';
+import '../views/case_paper_form_page/case_paper_form_page.dart';
 import '../controller/case_paper_controller.dart';
-import '../views/splash_screen.dart';
+import '../views/splash_screen/splash_screen.dart';
 
 class AppRoutes {
   static const splash = '/splash';

@@ -9,14 +9,14 @@ import 'package:panacea/controller/auth_session.dart';
 import 'package:panacea/services/api_service.dart';
 import 'package:panacea/services/perscription_pdf_service.dart';
 
-class PatientFormPage extends StatefulWidget {
-  const PatientFormPage({super.key});
+class PatientFormPageContent extends StatefulWidget {
+  const PatientFormPageContent({super.key});
 
   @override
-  State<PatientFormPage> createState() => _PatientFormPageState();
+  State<PatientFormPageContent> createState() => _PatientFormPageContentState();
 }
 
-class _PatientFormPageState extends State<PatientFormPage> {
+class _PatientFormPageContentState extends State<PatientFormPageContent> {
   // Section A Controllers
   final TextEditingController _mobileController = TextEditingController();
   final TextEditingController _nameController = TextEditingController();

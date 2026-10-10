@@ -9,14 +9,14 @@ import 'package:panacea/services/api_service.dart';
 import 'package:panacea/services/case_paper_pdf_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-class CasePapersPage extends StatefulWidget {
-  const CasePapersPage({super.key});
+class CasePapersPageContent extends StatefulWidget {
+  const CasePapersPageContent({super.key});
 
   @override
-  State<CasePapersPage> createState() => _CasePapersPageState();
+  State<CasePapersPageContent> createState() => _CasePapersPageContentState();
 }
 
-class _CasePapersPageState extends State<CasePapersPage> {
+class _CasePapersPageContentState extends State<CasePapersPageContent> {
   static const _frames = [
     'Demographics & core registry',
     'Chief complaints & causation journey',
@@ -1315,10 +1315,7 @@ class _CasePapersPageState extends State<CasePapersPage> {
           crossAxisAlignment: WrapCrossAlignment.center,
           spacing: 12,
           runSpacing: 8,
-          children: [
-            patientSummary,
-            newPaperButton,
-          ],
+          children: [patientSummary, newPaperButton],
         ),
         const SizedBox(height: 20),
         if (_papers.isEmpty)
