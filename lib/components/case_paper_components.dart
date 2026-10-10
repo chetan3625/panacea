@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // SectionCard – titled card container used for each clinical section
@@ -21,7 +22,9 @@ class SectionCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final titleColor = accent ? cs.primary : cs.onSurface;
-    final borderColor = accent ? cs.primary.withValues(alpha: 0.35) : cs.outline;
+    final borderColor = accent
+        ? cs.primary.withValues(alpha: 0.35)
+        : cs.outline;
     return Container(
       margin: const EdgeInsets.only(bottom: 18),
       decoration: BoxDecoration(
@@ -38,7 +41,9 @@ class SectionCard extends StatelessWidget {
               color: accent
                   ? cs.primary.withValues(alpha: 0.08)
                   : cs.surfaceContainerLowest,
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(11)),
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(11),
+              ),
             ),
             child: Row(
               children: [
@@ -104,7 +109,9 @@ class ChoiceChipGroup extends StatelessWidget {
             if (multiSelect) {
               active ? next.remove(option) : next.add(option);
             } else {
-              next..clear()..add(option);
+              next
+                ..clear()
+                ..add(option);
             }
             onChanged(next);
           },
@@ -139,6 +146,30 @@ class ChoiceChipGroup extends StatelessWidget {
   }
 }
 
+/// Multi-select chip group backed by an observable list from the controller.
+class MultiSelectChipGroup extends StatelessWidget {
+  const MultiSelectChipGroup({
+    super.key,
+    required this.title,
+    required this.options,
+    required this.selectedItems,
+  });
+
+  final String title;
+  final List<String> options;
+  final RxList<String> selectedItems;
+
+  @override
+  Widget build(BuildContext context) => Obx(
+    () => ChoiceChipGroup(
+      label: title,
+      options: options,
+      selected: selectedItems.toSet(),
+      onChanged: (values) => selectedItems.assignAll(values),
+    ),
+  );
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // MultiSelectFilterCloud – searchable bottom-sheet multi-picker
 // ─────────────────────────────────────────────────────────────────────────────
@@ -163,11 +194,8 @@ class MultiSelectFilterCloud extends StatelessWidget {
       context: context,
       isScrollControlled: true,
       useSafeArea: true,
-      builder: (_) => _FilterSheet(
-        title: label,
-        options: options,
-        selected: selected,
-      ),
+      builder: (_) =>
+          _FilterSheet(title: label, options: options, selected: selected),
     );
     if (result != null) onChanged(result);
   }
@@ -207,15 +235,19 @@ class MultiSelectFilterCloud extends StatelessWidget {
           Wrap(
             spacing: 6,
             runSpacing: 4,
-            children: selected.map((item) => Chip(
-              label: Text(item, style: const TextStyle(fontSize: 12)),
-              materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-              deleteIcon: const Icon(Icons.close, size: 14),
-              onDeleted: () {
-                final next = {...selected}..remove(item);
-                onChanged(next);
-              },
-            )).toList(),
+            children: selected
+                .map(
+                  (item) => Chip(
+                    label: Text(item, style: const TextStyle(fontSize: 12)),
+                    materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    deleteIcon: const Icon(Icons.close, size: 14),
+                    onDeleted: () {
+                      final next = {...selected}..remove(item);
+                      onChanged(next);
+                    },
+                  ),
+                )
+                .toList(),
           ),
         ],
       ],
@@ -243,7 +275,10 @@ class _FilterSheetState extends State<_FilterSheet> {
   String _query = '';
 
   @override
-  void dispose() { _search.dispose(); super.dispose(); }
+  void dispose() {
+    _search.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -263,8 +298,10 @@ class _FilterSheetState extends State<_FilterSheet> {
               Row(
                 children: [
                   Expanded(
-                    child: Text(widget.title,
-                        style: Theme.of(context).textTheme.titleLarge),
+                    child: Text(
+                      widget.title,
+                      style: Theme.of(context).textTheme.titleLarge,
+                    ),
                   ),
                   TextButton(
                     onPressed: () => Navigator.of(context).pop(_sel),
@@ -438,8 +475,7 @@ class ResponsiveGrid extends StatelessWidget {
         final columns = (availableWidth / (minColumnWidth + spacing))
             .floor()
             .clamp(1, 4);
-        final itemWidth =
-            (availableWidth - spacing * (columns - 1)) / columns;
+        final itemWidth = (availableWidth - spacing * (columns - 1)) / columns;
         return Wrap(
           spacing: spacing,
           runSpacing: spacing,
@@ -483,9 +519,9 @@ class KeynoteCard extends StatelessWidget {
               const SizedBox(width: 6),
               Text(
                 label,
-                style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                  color: cs.primary,
-                ),
+                style: Theme.of(
+                  context,
+                ).textTheme.labelLarge?.copyWith(color: cs.primary),
               ),
             ],
           ),

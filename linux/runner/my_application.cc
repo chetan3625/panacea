@@ -22,6 +22,15 @@ static void first_frame_cb(MyApplication* self, FlView* view) {
 // Implements GApplication::activate.
 static void my_application_activate(GApplication* application) {
   MyApplication* self = MY_APPLICATION(application);
+
+  // On Linux, GTK can treat selected text as a separate PRIMARY clipboard and
+  // paste it on middle-click. Keep standard Ctrl+C/Ctrl+V behavior without
+  // unexpectedly inserting the last text selection.
+  GtkSettings* settings = gtk_settings_get_default();
+  if (settings != nullptr) {
+    g_object_set(settings, "gtk-enable-primary-paste", FALSE, nullptr);
+  }
+
   GtkWindow* window =
       GTK_WINDOW(gtk_application_window_new(GTK_APPLICATION(application)));
 
