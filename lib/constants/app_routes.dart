@@ -28,7 +28,9 @@ class AppRoutes {
     GetPage(
       name: casePaperForm,
       page: () => const CasePaperFormPage(),
-      binding: BindingsBuilder(() => Get.put(CasePaperController())),
+      binding: BindingsBuilder(() {
+        Get.put(CasePaperController());
+      }),
     ),
   ];
 }

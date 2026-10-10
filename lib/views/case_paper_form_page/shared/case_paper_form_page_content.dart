@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:intl/intl.dart';
 import '../../../controller/case_paper_controller.dart';
 import '../../../components/case_paper_components.dart';
 import '../../../components/common_components.dart';
+import '../../../theme/app_theme.dart';
+import '../../../theme/app_widgets.dart';
 
 class CasePaperFormPageContent extends StatelessWidget {
   final bool isCompact;
@@ -15,74 +16,275 @@ class CasePaperFormPageContent extends StatelessWidget {
     final controller = Get.find<CasePaperController>();
     final textTheme = Theme.of(context).textTheme;
 
-    return Align(
-      alignment: Alignment.topCenter,
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 1000),
-        child: ListView(
-          padding: const EdgeInsets.all(24.0),
-          children: [
-            _buildFrameCard(
-              title: '1. Demographics & Registry',
+    return ListView(
+      padding: EdgeInsets.fromLTRB(16, 16, 16, isCompact ? 112 : 24),
+      children: [
+        _buildProgressCard(context, controller),
+
+        // --- DYNAMIC CARD FOR CASE PAPER 2 (ACUTE) ---
+        Obx(() {
+          if (controller.selectedCasePaperType.value.contains('Acute')) {
+            return _buildFrameCard(
+              title: '⚡ Acute Case Paper Assessment (Quick Intake)',
               initiallyExpanded: true,
               children: [
-                _buildResponsiveRow([
-                  Expanded(
-                    child: CustomTextField(
-                      controller: controller.occupationController,
-                      label: 'Occupation',
-                    ),
-                  ),
-                  Expanded(
-                    child: CustomTextField(
-                      controller: controller.maritalStatusController,
-                      label: 'Marital Status',
-                    ),
-                  ),
-                ]),
+                RadioSelectGroup(
+                  title: 'Onset Speed',
+                  options: const [
+                    'Sudden (Hours)',
+                    'Gradual (Days)',
+                    'Periodic / Recurrent'
+                  ],
+                  selectedValue: controller.acuteOnset,
+                ),
+                const SizedBox(height: 16),
+                RadioSelectGroup(
+                  title: 'Acute Exciting Cause',
+                  options: const [
+                    'Cold Draught / Wind',
+                    'Sun / Heat Exposure',
+                    'Over-eating / Indigestion',
+                    'Emotional Upset / Anger',
+                    'Wet / Rain',
+                    'Physical Exertion'
+                  ],
+                  selectedValue: controller.acuteCause,
+                ),
                 const SizedBox(height: 16),
                 CustomTextField(
-                  controller: controller.referredByController,
-                  label: 'Referred To Us By',
+                  controller: controller.acuteNotesController,
+                  label: 'Acute Keynotes & Remedy Selection Notes',
+                  maxLines: 2,
                 ),
               ],
-            ),
+            );
+          }
+          return const SizedBox.shrink();
+        }),
 
-            _buildFrameCard(
-              title: '2. Chief Complaints & Causation (LSMC)',
+        // --- DYNAMIC CARD FOR CASE PAPER 3 (THYROID CASE PAPER) ---
+        Obx(() {
+          if (controller.selectedCasePaperType.value.contains('Thyroid')) {
+            return _buildFrameCard(
+              title: '🦋 Thyroid Case Paper (Specialized Endocrinology Intake)',
+              initiallyExpanded: true,
               children: [
-                CustomTextField(
-                  controller: controller.chiefComplaintsController,
-                  label: 'Chief Complaints & Associated Troubles',
-                  maxLines: 3,
+                RadioSelectGroup(
+                  title: 'Thyroid Diagnosis',
+                  options: const [
+                    'Hypothyroidism',
+                    'Hyperthyroidism',
+                    'Hashimoto\'s Thyroiditis',
+                    'Graves\' Disease',
+                    'Goitre / Thyroid Nodules'
+                  ],
+                  selectedValue: controller.thyroidDiagnosis,
                 ),
                 const SizedBox(height: 16),
-                CustomTextField(
-                  controller: controller.causationJourneyController,
-                  label: 'Journey & Cause (Emotions, Intrinsic, Extrinsic)',
-                  maxLines: 2,
+                RadioSelectGroup(
+                  title: 'Onset Phase & Physiological Trigger',
+                  options: const [
+                    'Puberty / Hormonal Phase',
+                    'Pregnancy / Post-parturition',
+                    'Menopause / Post-menopause',
+                    'Post-Hysterectomy',
+                    'Medical (OC Pills/Steroids)',
+                    'Emotional Grief / Fear'
+                  ],
+                  selectedValue: controller.thyroidOnsetTrigger,
+                ),
+                const SizedBox(height: 16),
+                RadioSelectGroup(
+                  title: 'Goitre / Neck Swelling Location & Extent',
+                  options: const [
+                    'Neck Swelling (Diffuse)',
+                    'Right Lobe Only',
+                    'Left Lobe Only',
+                    'Involving Chin & Neck',
+                    'Nodular / Knotty'
+                  ],
+                  selectedValue: controller.goitreLocation,
+                ),
+                const SizedBox(height: 16),
+                _buildResponsiveRow(
+                  children: [
+                    RadioSelectGroup(
+                      title: 'Goitre Sensation',
+                      options: const [
+                        'Constriction / Air Passing',
+                        'Painful / Sensitive',
+                        'Painless Aching',
+                        'Pressure on Swallowing'
+                      ],
+                      selectedValue: controller.goitreSensation,
+                    ),
+                    RadioSelectGroup(
+                      title: 'Physique & Emaciation Pattern',
+                      options: const [
+                        'Myxoedema / Puffy Physique',
+                        'Emaciation Above Downwards',
+                        'Emaciation Below Upwards',
+                        'Obesity (Lower Body)',
+                        'Obesity (Upper Body)'
+                      ],
+                      selectedValue: controller.physiqueEmaciation,
+                    ),
+                  ],
                 ),
                 const SizedBox(height: 24),
-                MultiSelectChipGroup(
-                  title: 'Endocrinal Interventions / Transitions',
-                  options: const [
-                    'Developmental Delays',
-                    'Puberty',
-                    'Menarche',
-                    'Pregnancy',
-                    'Menopause',
-                    'OC Pills',
-                  ],
-                  selectedItems: controller.selectedEndocrinalInterventions,
+                Text(
+                  'Laboratory & Thyroid Profile (T3, T4, TSH)',
+                  style: textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
-                const SizedBox(height: 16),
-                CustomTextField(
-                  controller: controller.historyOfMedicinesController,
-                  label: 'History of Medicines Taken',
-                  maxLines: 2,
+                const SizedBox(height: 12),
+                _buildResponsiveRow(
+                  children: [
+                    CustomTextField(
+                      controller: controller.t3Controller,
+                      label: 'Serum T3 (ng/dL)',
+                      isNumber: true,
+                    ),
+                    CustomTextField(
+                      controller: controller.t4Controller,
+                      label: 'Serum T4 (µg/dL)',
+                      isNumber: true,
+                    ),
+                    CustomTextField(
+                      controller: controller.tshController,
+                      label: 'Serum TSH (mIU/L)',
+                      isNumber: true,
+                    ),
+                    CustomTextField(
+                      controller: controller.antiTpoController,
+                      label: 'Anti-TPO / USG Notes',
+                    ),
+                  ],
                 ),
               ],
+            );
+          }
+          return const SizedBox.shrink();
+        }),
+
+        _buildFrameCard(
+          title: '1. Demographics & Registry',
+          initiallyExpanded: true,
+          children: [
+            RadioSelectGroup(
+              title: 'Marital Status',
+              options: const [
+                'Single',
+                'Married',
+                'Divorced',
+                'Widowed',
+                'Separated'
+              ],
+              selectedValue: controller.selectedMaritalStatus,
+              controller: controller.maritalStatusController,
             ),
+            const SizedBox(height: 20),
+            RadioSelectGroup(
+              title: 'Referred To Us By',
+              options: const [
+                'Self / Direct',
+                'Family / Relative',
+                'Doctor Referral',
+                'Online / Social Media',
+                'Camp / Seminar',
+                'Other'
+              ],
+              selectedValue: controller.selectedReferredBy,
+              controller: controller.referredByController,
+            ),
+            const SizedBox(height: 20),
+            RadioSelectGroup(
+              title: 'Occupation Type',
+              options: const [
+                'Desk Job / Corporate',
+                'Business / Shop',
+                'Homemaker',
+                'Student',
+                'Field Work / Labor',
+                'Healthcare / Teacher',
+                'Retired'
+              ],
+              selectedValue: controller.selectedOccupation,
+              controller: controller.occupationController,
+            ),
+            const SizedBox(height: 16),
+            CustomTextField(
+              controller: controller.occupationController,
+              label: 'Occupation Details / Custom Notes (Optional)',
+            ),
+          ],
+        ),
+
+        _buildFrameCard(
+          title: '2. Chief Complaints & Causation (LSMC)',
+          children: [
+            QuickAppendTextField(
+              controller: controller.chiefComplaintsController,
+              label: 'Chief Complaints & Associated Troubles',
+              maxLines: 3,
+              quickSuggestions: const [
+                'Headache / Migraine',
+                'Acidity / Gastric',
+                'Skin Eruption / Itching',
+                'Joint / Back Pain',
+                'Allergic Rhinitis / Cough',
+                'Anxiety / Stress',
+                'Insomnia / Sleep Issues',
+                'Menstrual Irregularity',
+              ],
+            ),
+            const SizedBox(height: 20),
+            QuickAppendTextField(
+              controller: controller.causationJourneyController,
+              label: 'Journey & Cause (Emotions, Intrinsic, Extrinsic)',
+              maxLines: 2,
+              quickSuggestions: const [
+                'Emotional Shock / Grief',
+                'Post-Infection / Illness',
+                'Weather / Sudden Cold',
+                'Over-exertion / Stress',
+                'Dietary Excess / Poisoning',
+                'Suppression of Eruptions',
+                'Injury / Trauma',
+                'Hormonal Change',
+              ],
+            ),
+            const SizedBox(height: 24),
+            MultiSelectChipGroup(
+              title: 'Endocrinal Interventions / Transitions',
+              options: const [
+                'Developmental Delays',
+                'Puberty',
+                'Menarche',
+                'Pregnancy',
+                'Menopause',
+                'OC Pills',
+              ],
+              selectedItems: controller.selectedEndocrinalInterventions,
+            ),
+            const SizedBox(height: 20),
+            QuickAppendTextField(
+              controller: controller.historyOfMedicinesController,
+              label: 'History of Medicines Taken',
+              maxLines: 2,
+              quickSuggestions: const [
+                'Allopathy / Antibiotics',
+                'Painkillers / NSAIDs',
+                'Steroids',
+                'Homeopathic Remedies',
+                'Ayurvedic / Herbal',
+                'Supplements / Vitamins',
+                'No prior meds',
+              ],
+            ),
+          ],
+        ),
 
             _buildFrameCard(
               title: '3. Past Medical History (CPS Timeline)',
@@ -94,8 +296,9 @@ class CasePaperFormPageContent extends StatelessWidget {
                 ),
                 const SizedBox(height: 16),
                 Obx(() {
-                  if (controller.pastDiseases.isEmpty)
+                  if (controller.pastDiseases.isEmpty) {
                     return const SizedBox.shrink();
+                  }
                   return Container(
                     decoration: BoxDecoration(
                       border: Border.all(
@@ -107,28 +310,32 @@ class CasePaperFormPageContent extends StatelessWidget {
                       shrinkWrap: true,
                       physics: const NeverScrollableScrollPhysics(),
                       itemCount: controller.pastDiseases.length,
-                      separatorBuilder: (_, __) => const Divider(height: 1),
+                      separatorBuilder: (_, _) => const Divider(height: 1),
                       itemBuilder: (context, index) {
                         final disease = controller.pastDiseases[index];
-                        return ListTile(
-                          title: Text(
-                            disease,
-                            style: const TextStyle(fontWeight: FontWeight.bold),
-                          ),
-                          subtitle: Padding(
-                            padding: const EdgeInsets.only(top: 8.0),
-                            child: _buildResponsiveRow([
-                              Expanded(
-                                child: CustomTextField(
-                                  label: 'Year',
-                                  isNumber: true,
-                                ),
+                        return Material(
+                          color:
+                              Colors.transparent, // Fixes ListTile ink warning
+                          child: ListTile(
+                            title: Text(
+                              disease,
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
                               ),
-                              Expanded(child: CustomTextField(label: 'Cause')),
-                              Expanded(
-                                child: CustomTextField(label: 'Symptoms'),
+                            ),
+                            subtitle: Padding(
+                              padding: const EdgeInsets.only(top: 8.0),
+                              child: _buildResponsiveRow(
+                                children: const [
+                                  CustomTextField(
+                                    label: 'Year',
+                                    isNumber: true,
+                                  ),
+                                  CustomTextField(label: 'Cause'),
+                                  CustomTextField(label: 'Symptoms'),
+                                ],
                               ),
-                            ]),
+                            ),
                           ),
                         );
                       },
@@ -144,7 +351,7 @@ class CasePaperFormPageContent extends StatelessWidget {
                 Text(
                   'Family Diathesis Matrix',
                   style: textTheme.titleSmall?.copyWith(
-                    color: Colors.grey[800],
+                    color: AppColors.text,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
@@ -154,7 +361,7 @@ class CasePaperFormPageContent extends StatelessWidget {
                     shrinkWrap: true,
                     physics: const NeverScrollableScrollPhysics(),
                     itemCount: controller.familyHistoryMatrix.keys.length,
-                    separatorBuilder: (_, __) => const SizedBox(height: 12),
+                    separatorBuilder: (_, _) => const SizedBox(height: 12),
                     itemBuilder: (context, index) {
                       final relation = controller.familyHistoryMatrix.keys
                           .elementAt(index);
@@ -205,9 +412,9 @@ class CasePaperFormPageContent extends StatelessWidget {
                   selectedValue: controller.selectedThermals,
                 ),
                 const SizedBox(height: 24),
-                _buildResponsiveRow([
-                  Expanded(
-                    child: SegmentedToggleGroup(
+                _buildResponsiveRow(
+                  children: [
+                    SegmentedToggleGroup(
                       title: 'Thirst',
                       options: const [
                         'Normal',
@@ -216,15 +423,13 @@ class CasePaperFormPageContent extends StatelessWidget {
                       ],
                       selectedValue: controller.selectedThirst,
                     ),
-                  ),
-                  Expanded(
-                    child: SegmentedToggleGroup(
+                    SegmentedToggleGroup(
                       title: 'Water Temp',
                       options: const ['Normal', 'Cold', 'Warm'],
                       selectedValue: controller.selectedThirstTemp,
                     ),
-                  ),
-                ]),
+                  ],
+                ),
                 const SizedBox(height: 24),
                 MultiSelectChipGroup(
                   title: 'Bowel & Urine Traits',
@@ -244,7 +449,7 @@ class CasePaperFormPageContent extends StatelessWidget {
                 Text(
                   'Modalities (Factors Affecting)',
                   style: textTheme.titleSmall?.copyWith(
-                    color: Colors.grey[800],
+                    color: AppColors.text,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
@@ -267,22 +472,20 @@ class CasePaperFormPageContent extends StatelessWidget {
             _buildFrameCard(
               title: '6. Female History (Conditional)',
               children: [
-                _buildResponsiveRow([
-                  Expanded(
-                    child: CustomTextField(
+                _buildResponsiveRow(
+                  children: [
+                    CustomTextField(
                       controller: controller.menarcheAgeController,
                       label: 'Menarche Age',
                       isNumber: true,
                     ),
-                  ),
-                  Expanded(
-                    child: SegmentedToggleGroup(
+                    SegmentedToggleGroup(
                       title: 'Cycle Rhythm',
                       options: const ['Regular', 'Irregular'],
                       selectedValue: controller.isCycleRegular,
                     ),
-                  ),
-                ]),
+                  ],
+                ),
                 const SizedBox(height: 24),
                 SegmentedToggleGroup(
                   title: 'Character of Flow',
@@ -326,37 +529,33 @@ class CasePaperFormPageContent extends StatelessWidget {
             _buildFrameCard(
               title: '7. Examination Findings',
               children: [
-                _buildResponsiveRow([
-                  Expanded(
-                    child: CustomTextField(
+                _buildResponsiveRow(
+                  children: [
+                    CustomTextField(
                       controller: controller.bpController,
                       label: 'Blood Pressure',
                     ),
-                  ),
-                  Expanded(
-                    child: CustomTextField(
+                    CustomTextField(
                       controller: controller.pulseController,
                       label: 'Pulse',
                     ),
-                  ),
-                ]),
+                  ],
+                ),
                 const SizedBox(height: 16),
-                _buildResponsiveRow([
-                  Expanded(
-                    child: CustomTextField(
+                _buildResponsiveRow(
+                  children: [
+                    CustomTextField(
                       controller: controller.weightController,
                       label: 'Weight (kg)',
                       isNumber: true,
                     ),
-                  ),
-                  Expanded(
-                    child: CustomTextField(
+                    CustomTextField(
                       controller: controller.heightController,
                       label: 'Height (cm)',
                       isNumber: true,
                     ),
-                  ),
-                ]),
+                  ],
+                ),
                 const SizedBox(height: 24),
                 MultiSelectChipGroup(
                   title: 'Objective Inspection',
@@ -407,10 +606,15 @@ class CasePaperFormPageContent extends StatelessWidget {
                       return Padding(
                         key: ValueKey(med['id']),
                         padding: const EdgeInsets.only(bottom: 12.0),
-                        child: _buildResponsiveRow([
-                          Expanded(
-                            flex: 2,
-                            child: TextFormField(
+                        child: _buildResponsiveRow(
+                          flexes: [
+                            2,
+                            1,
+                            2,
+                            0,
+                          ], // 0 flex avoids Expanded on the delete icon
+                          children: [
+                            TextFormField(
                               initialValue: med['name'],
                               decoration: const InputDecoration(
                                 labelText: 'Medicine',
@@ -419,15 +623,13 @@ class CasePaperFormPageContent extends StatelessWidget {
                               onChanged: (val) =>
                                   controller.updateMedicine(index, 'name', val),
                             ),
-                          ),
-                          Expanded(
-                            child: DropdownButtonFormField<String>(
+                            DropdownButtonFormField<String>(
                               isExpanded: true,
                               decoration: const InputDecoration(
                                 labelText: 'Potency',
                                 border: OutlineInputBorder(),
                               ),
-                              value: med['potency'],
+                              initialValue: med['potency'],
                               items: ['30C', '200C', '1M', '10M', 'LM']
                                   .map(
                                     (p) => DropdownMenuItem(
@@ -442,10 +644,7 @@ class CasePaperFormPageContent extends StatelessWidget {
                                 val ?? '30C',
                               ),
                             ),
-                          ),
-                          Expanded(
-                            flex: 2,
-                            child: TextFormField(
+                            TextFormField(
                               initialValue: med['dosage'],
                               decoration: const InputDecoration(
                                 labelText: 'Dosage',
@@ -457,15 +656,15 @@ class CasePaperFormPageContent extends StatelessWidget {
                                 val,
                               ),
                             ),
-                          ),
-                          IconButton(
-                            icon: const Icon(
-                              Icons.delete_outline,
-                              color: Colors.red,
+                            IconButton(
+                              icon: const Icon(
+                                Icons.delete_outline,
+                                color: Colors.red,
+                              ),
+                              onPressed: () => controller.removeMedicine(index),
                             ),
-                            onPressed: () => controller.removeMedicine(index),
-                          ),
-                        ]),
+                          ],
+                        ),
                       );
                     },
                   ),
@@ -479,30 +678,34 @@ class CasePaperFormPageContent extends StatelessWidget {
               ],
             ),
 
-            const SizedBox(height: 40),
-            _buildActionButtons(controller),
-            const SizedBox(height: 60),
+            const SizedBox(height: 24),
           ],
-        ),
-      ),
-    );
-  }
+        );
+      }
 
   Widget _buildFrameCard({
     required String title,
     required List<Widget> children,
     bool initiallyExpanded = false,
   }) {
+    final sectionNumber = RegExp(r'^\s*(\d+)\.').firstMatch(title)?.group(1);
     return Card(
       margin: const EdgeInsets.only(bottom: 16),
       clipBehavior: Clip.antiAlias,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
-        side: const BorderSide(color: Color(0xFFE5EAF0)),
+        side: const BorderSide(color: AppColors.border),
       ),
       elevation: 0,
       child: ExpansionTile(
         initiallyExpanded: initiallyExpanded,
+        leading: sectionNumber == null
+            ? null
+            : CircleAvatar(
+                radius: 13,
+                backgroundColor: initiallyExpanded ? AppColors.success : AppColors.primary,
+                child: Text(sectionNumber, style: const TextStyle(color: Colors.white, fontSize: 12)),
+              ),
         title: Text(title, style: const TextStyle(fontWeight: FontWeight.w700)),
         backgroundColor: Colors.white,
         collapsedBackgroundColor: Colors.white,
@@ -513,47 +716,72 @@ class CasePaperFormPageContent extends StatelessWidget {
     );
   }
 
-  Widget _buildResponsiveRow(List<Widget> children) {
+  Widget _buildProgressCard(BuildContext context, CasePaperController controller) => Obx(() {
+    final complete = [
+      controller.occupationController.text.trim().isNotEmpty || controller.selectedMaritalStatus.value.isNotEmpty,
+      controller.chiefComplaintsController.text.trim().isNotEmpty,
+      controller.pastDiseases.isNotEmpty,
+      controller.familyHistoryMatrix.values.any((values) => values.isNotEmpty),
+      controller.foodDesires.isNotEmpty || controller.foodAversions.isNotEmpty || controller.dreamCategories.isNotEmpty,
+      controller.menarcheAgeController.text.trim().isNotEmpty || controller.leucorrhoeaTags.isNotEmpty,
+      controller.objectiveInspectionTags.isNotEmpty || controller.weightController.text.isNotEmpty || controller.bpController.text.isNotEmpty,
+      controller.mentalRubrics.isNotEmpty || controller.prescriptionNotesController.text.trim().isNotEmpty || controller.prescribedMedicines.isNotEmpty,
+    ].where((value) => value).length;
+    return AppCard(
+      color: AppColors.primaryLight,
+      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        Row(children: [
+          Expanded(child: Text('$complete of 8 sections done', style: Theme.of(context).textTheme.bodySmall)),
+          Text('${(complete / 8 * 100).round()}%', style: Theme.of(context).textTheme.bodySmall),
+        ]),
+        const SizedBox(height: 8),
+        LinearProgressIndicator(value: complete / 8, color: AppColors.primary, backgroundColor: AppColors.card),
+      ]),
+    );
+  });
+
+  /// Rebuilt to safely handle layout logic internally instead of passing pre-Expanded widgets
+  Widget _buildResponsiveRow({
+    required List<Widget> children,
+    List<int>? flexes,
+  }) {
     if (isCompact) {
+      // Mobile: Stack vertically without using Expanded
+      final columnChildren = <Widget>[];
+      for (int i = 0; i < children.length; i++) {
+        columnChildren.add(children[i]);
+        if (i < children.length - 1) {
+          columnChildren.add(const SizedBox(height: 16));
+        }
+      }
       return Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
-        children:
-            children.expand((w) => [w, const SizedBox(height: 16)]).toList()
-              ..removeLast(),
+        children: columnChildren,
       );
     }
+
+    // Desktop: Lay out horizontally, injecting Expanded where requested
+    final rowChildren = <Widget>[];
+    for (int i = 0; i < children.length; i++) {
+      final flex = (flexes != null && i < flexes.length) ? flexes[i] : 1;
+
+      if (flex > 0) {
+        rowChildren.add(Expanded(flex: flex, child: children[i]));
+      } else {
+        rowChildren.add(
+          children[i],
+        ); // flex 0 = render at natural width (e.g. icons)
+      }
+
+      if (i < children.length - 1) {
+        rowChildren.add(const SizedBox(width: 16));
+      }
+    }
+
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
-      children: children.expand((w) => [w, const SizedBox(width: 16)]).toList()
-        ..removeLast(),
+      children: rowChildren,
     );
   }
 
-  Widget _buildActionButtons(CasePaperController controller) {
-    final buttons = [
-      OutlinedButton.icon(
-        onPressed: () => Get.back(),
-        icon: const Icon(Icons.arrow_back),
-        label: const Text('Back to Profile'),
-        style: OutlinedButton.styleFrom(padding: const EdgeInsets.all(20)),
-      ),
-      FilledButton.icon(
-        onPressed: controller.saveCasePaper,
-        icon: const Icon(Icons.save),
-        label: const Text('Save Case Paper'),
-        style: FilledButton.styleFrom(padding: const EdgeInsets.all(20)),
-      ),
-    ];
-
-    if (isCompact) {
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [buttons[1], const SizedBox(height: 12), buttons[0]],
-      );
-    }
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.end,
-      children: [buttons[0], const SizedBox(width: 16), buttons[1]],
-    );
-  }
 }

@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Dr. Clinic - desktop</title>
+<style>
+:root{--bg:#f3f6fb;--card:#fff;--line:#e4e9f1;--tx:#18212f;--tx2:#5d6b80;--tx3:#8f9bad;--pri:#185fa5;--pri-l:#e6f1fb;--ok:#2f7d4f;--ok-l:#e5f4ea;--warn:#a5650b;--warn-l:#fdf0d9;--bad:#a32d2d;--bad-l:#fcebeb}
+*{box-sizing:border-box;margin:0}
+html,body{height:100%}
+body{font-family:Inter,"Segoe UI",system-ui,sans-serif;background:var(--bg);color:var(--tx);font-size:14px;display:flex}
+.i{width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;flex-shrink:0}
+.side{width:230px;background:var(--card);border-right:1px solid var(--line);padding:20px 14px;display:flex;flex-direction:column;gap:4px;flex-shrink:0}
+.logo{display:flex;align-items:center;gap:10px;font-weight:600;font-size:16px;padding:0 8px 18px}
+.logo b{width:34px;height:34px;border-radius:10px;background:var(--pri);color:#fff;display:flex;align-items:center;justify-content:center;font-size:15px}
+.nav{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:10px;color:var(--tx2);cursor:pointer;font-weight:500}
+.nav:hover{background:var(--bg)}.nav.on{background:var(--pri-l);color:var(--pri)}
+.side .me{margin-top:auto;display:flex;align-items:center;gap:10px;padding:12px 8px;border-top:1px solid var(--line)}
+.main{flex:1;min-width:0;display:flex;flex-direction:column;height:100%}
+.topbar{display:flex;align-items:center;gap:14px;padding:14px 28px;background:var(--card);border-bottom:1px solid var(--line)}
+.search{flex:1;max-width:420px;display:flex;gap:8px;align-items:center;background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:10px 12px;color:var(--tx3)}
+.search input{border:0;background:none;outline:0;font:inherit;flex:1;color:var(--tx)}
+.jump{display:flex;gap:4px;background:var(--bg);border-radius:10px;padding:3px;margin-left:auto}
+.jump span{padding:6px 12px;border-radius:8px;font-size:12px;color:var(--tx2);cursor:pointer}
+.jump span.on{background:var(--card);color:var(--tx);font-weight:500}
+.content{flex:1;overflow-y:auto;padding:24px 28px 40px}
+.view{display:none}.view.on{display:block}
+h1{font-size:22px;font-weight:600}h2{font-size:16px;font-weight:600}
+.mt{font-size:12px;color:var(--tx2)}
+.card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:18px}
+.row{display:flex;align-items:center}.sp{justify-content:space-between}.g8{gap:8px}.g12{gap:12px}.grow{flex:1;min-width:0}
+.btn{border-radius:10px;padding:10px 16px;font-size:13px;font-weight:500;display:inline-flex;gap:6px;align-items:center;justify-content:center;border:1px solid var(--pri);cursor:pointer;white-space:nowrap}
+.b-f{background:var(--pri);color:#fff}.b-o{background:var(--card);color:var(--pri)}.b-t{border-color:transparent;background:none;color:var(--tx2)}
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin:18px 0}
+.stat{border-radius:16px;padding:16px;display:flex;gap:12px;align-items:center}
+.stat b{display:block;font-size:26px;font-weight:600;line-height:1.1}.stat span{font-size:12px}
+.stat .ico{width:42px;height:42px;border-radius:12px;background:rgba(255,255,255,.7);display:flex;align-items:center;justify-content:center}
+.t-b{background:var(--pri-l);color:var(--pri)}.t-g{background:var(--ok-l);color:var(--ok)}.t-w{background:var(--warn-l);color:var(--warn)}.t-r{background:var(--bad-l);color:var(--bad)}
+.tag{display:inline-block;font-size:11px;padding:3px 10px;border-radius:10px}
+.split{display:grid;grid-template-columns:minmax(0,1fr) 320px;gap:18px;align-items:start}
+.chips{display:flex;gap:6px;flex-wrap:wrap}
+.chip{font-size:12px;padding:7px 14px;border-radius:16px;background:var(--card);border:1px solid var(--line);color:var(--tx2);cursor:pointer;user-select:none}
+.chip.on{background:var(--pri);border-color:var(--pri);color:#fff}
+table{width:100%;border-collapse:collapse}
+th{text-align:left;font-size:12px;font-weight:500;color:var(--tx2);padding:10px 12px;border-bottom:1px solid var(--line)}
+td{padding:12px;border-bottom:1px solid var(--line);vertical-align:middle}
+tbody tr{cursor:pointer}tbody tr:hover{background:var(--bg)}tbody tr.sel{background:var(--pri-l)}
+.av{width:38px;height:38px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:600;font-size:13px;flex-shrink:0}
+.nm{font-weight:600}
+.kv{display:flex;justify-content:space-between;padding:9px 0;border-bottom:1px solid var(--line);font-size:13px}.kv span:first-child{color:var(--tx2)}
+.prog{height:8px;border-radius:4px;background:#fff;margin-top:8px}.prog i{display:block;height:8px;border-radius:4px;background:var(--ok)}
+.tl{position:relative;padding-left:26px}.tl:before{content:"";position:absolute;left:7px;top:10px;bottom:10px;width:2px;background:var(--line)}
+.node{position:relative;margin-bottom:12px}.node:before{content:"";position:absolute;left:-26px;top:20px;width:16px;height:16px;border-radius:50%;border:3px solid var(--bg);background:var(--pri)}
+.node.g:before{background:var(--ok)}
+.crumb{font-size:13px;color:var(--tx2);margin-bottom:6px}.crumb a{color:var(--pri);cursor:pointer}
+.fld{margin-bottom:14px}.fld label{display:block;font-size:12px;color:var(--tx2);margin-bottom:5px}
+.in{width:100%;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:10px 12px;font:inherit;color:var(--tx);outline:0}
+.in:focus{border-color:var(--pri);box-shadow:0 0 0 3px var(--pri-l)}
+textarea.in{min-height:84px;resize:vertical}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.steps{display:flex;flex-direction:column;gap:2px}
+.step{display:flex;align-items:center;gap:10px;padding:10px;border-radius:10px;cursor:pointer;font-weight:500;color:var(--tx2)}
+.step.on{background:var(--pri-l);color:var(--pri)}
+.num{width:24px;height:24px;border-radius:50%;background:var(--bg);font-size:12px;display:flex;align-items:center;justify-content:center}
+.step.on .num{background:var(--pri);color:#fff}.step.done .num{background:var(--ok);color:#fff}
+.q{font-size:12px;color:var(--tx2);margin:14px 0 6px}
+.foot{position:sticky;bottom:-40px;margin:18px -28px -40px;background:var(--card);border-top:1px solid var(--line);padding:14px 28px;display:flex;justify-content:flex-end;gap:10px}
+.sel-o{display:flex;flex-direction:column;gap:8px;margin:8px 0 14px}
+.opt{border:1px solid var(--line);border-radius:10px;padding:10px 12px;display:flex;justify-content:space-between;cursor:pointer}
+.opt.on{border-color:var(--ok);background:var(--ok-l);color:var(--ok);font-weight:500}
+.opt.bad.on{border-color:var(--bad);background:var(--bad-l);color:var(--bad)}
+.modal{position:fixed;inset:0;background:rgba(15,23,42,.45);display:none;align-items:center;justify-content:center;z-index:10}
+.modal.on{display:flex}.dlg{background:var(--card);border-radius:20px;width:480px;max-width:92vw;max-height:90vh;overflow-y:auto;padding:24px}
+@media(max-width:1100px){.split{grid-template-columns:1fr}.stats{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:800px){.side{display:none}.jump{display:none}}
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute">
+<symbol id="search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></symbol>
+<symbol id="users" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></symbol>
+<symbol id="uplus" viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><path d="M20 8v6M23 11h-6"/></symbol>
+<symbol id="cal" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></symbol>
+<symbol id="file" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8zM14 2v6h6M16 13H8M16 17H8"/></symbol>
+<symbol id="fplus" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8zM14 2v6h6M12 18v-6M9 15h6"/></symbol>
+<symbol id="rep" viewBox="0 0 24 24"><path d="M17 1l4 4-4 4M3 11V9a4 4 0 0 1 4-4h14M7 23l-4-4 4-4M21 13v2a4 4 0 0 1-4 4H3"/></symbol>
+<symbol id="edit" viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7M18.5 2.5a2.1 2.1 0 0 1 3 3L12 15l-4 1 1-4z"/></symbol>
+<symbol id="out" viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/></symbol>
+<symbol id="ok" viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></symbol>
+<symbol id="home" viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2zM9 22V12h6v10"/></symbol>
+</svg>
+
+<aside class="side">
+<div class="logo"><b>Dr</b>Clinic</div>
+<div class="nav on" data-go="dash"><svg class="i"><use href="#home"/></svg>Dashboard</div>
+<div class="nav" data-go="dash" data-filter="all"><svg class="i"><use href="#users"/></svg>Patients</div>
+<div class="nav" data-go="dash" data-filter="fu"><svg class="i"><use href="#cal"/></svg>Follow-ups</div>
+<div class="me"><div class="av t-b">DC</div><div class="grow"><div class="nm">Dr. Chaudhari</div><div class="mt">Nashik clinic</div></div><svg class="i"><use href="#out"/></svg></div>
+</aside>
+
+<div class="main">
+<div class="topbar">
+<div class="search"><svg class="i"><use href="#search"/></svg><input id="q" placeholder="Search patient by name or mobile"></div>
+<div class="jump"><span class="on" data-go="dash">Dashboard</span><span data-go="cases">Case papers</span><span data-go="form">Case paper form</span><span data-go="edit">Edit patient</span></div>
+<div class="btn b-f" data-go="edit"><svg class="i"><use href="#uplus"/></svg>New patient</div>
+</div>
+
+<div class="content">
+
+<div class="view on" id="v-dash">
+<h1>Good afternoon, Dr. Chaudhari</h1><div class="mt">Here is what is happening at your clinic today.</div>
+<div class="stats">
+<div class="stat t-b"><div class="ico"><svg class="i"><use href="#users"/></svg></div><div><b>4</b><span>Total patients</span></div></div>
+<div class="stat t-g"><div class="ico"><svg class="i"><use href="#uplus"/></svg></div><div><b>4</b><span>Added this month</span></div></div>
+<div class="stat t-w"><div class="ico"><svg class="i"><use href="#cal"/></svg></div><div><b>1</b><span>Follow-ups due</span></div></div>
+<div class="stat t-b"><div class="ico"><svg class="i"><use href="#file"/></svg></div><div><b>5</b><span>Case papers</span></div></div>
+</div>
+<div class="split">
+<div class="card" style="padding:8px 8px 4px">
+<div class="row sp" style="padding:10px 12px 8px"><h2>Patient directory</h2>
+<div class="chips" id="filters"><span class="chip on" data-f="all">All</span><span class="chip" data-f="fu">Follow-up due</span><span class="chip" data-f="new">New</span></div></div>
+<table><thead><tr><th>Patient</th><th>Mobile</th><th>Status</th><th>Added</th><th></th></tr></thead>
+<tbody id="rows">
+<tr class="sel" data-f="fu new" data-n="Chetan Mahendra Chaudhari" data-m="9579071284" data-a="18, Male" data-b="A+" data-ad="Nashik" data-c="5 records" data-fu="12 Oct 2026"><td><div class="row g12"><div class="av t-b">CM</div><div><div class="nm">Chetan Mahendra Chaudhari</div><div class="mt">18 yrs, Male, A+</div></div></div></td><td>9579071284</td><td><span class="tag t-w">Follow-up 12 Oct</span></td><td>5 Oct</td><td><div class="btn b-o" data-go="cases">Case papers</div></td></tr>
+<tr data-f="new" data-n="Ghanshyam Chaudhari" data-m="9547907155" data-a="-" data-b="-" data-ad="-" data-c="1 record" data-fu="Not set"><td><div class="row g12"><div class="av t-g">GC</div><div><div class="nm">Ghanshyam Chaudhari</div><div class="mt">Giving medicines</div></div></div></td><td>9547907155</td><td><span class="tag t-g">On medication</span></td><td>4 Oct</td><td><div class="btn b-o" data-go="cases">Case papers</div></td></tr>
+<tr data-f="new" data-n="Kamalesh Mahendra Chaudhari" data-m="9579071288" data-a="20, Male" data-b="A+" data-ad="Nashik" data-c="1 record" data-fu="Not set"><td><div class="row g12"><div class="av t-b">KM</div><div><div class="nm">Kamalesh Mahendra Chaudhari</div><div class="mt">Cough and headache</div></div></div></td><td>9579071288</td><td><span class="tag t-b">New consultation</span></td><td>10 Oct</td><td><div class="btn b-o" data-go="cases">Case papers</div></td></tr>
+<tr data-f="new" data-n="Sneha Joshi (sample)" data-m="9000000000" data-a="-" data-b="-" data-ad="-" data-c="0 records" data-fu="Not set"><td><div class="row g12"><div class="av t-w">SJ</div><div><div class="nm">Sneha Joshi (sample)</div><div class="mt">No consultation notes</div></div></div></td><td>9000000000</td><td><span class="tag t-b">New</span></td><td>6 Oct</td><td><div class="btn b-o" data-go="cases">Case papers</div></td></tr>
+</tbody></table></div>
+
+<div class="card" id="detail">
+<div class="row g12" style="margin-bottom:10px"><div class="av t-b" style="width:52px;height:52px;font-size:17px" id="d-av">CM</div><div><h2 id="d-n">Chetan Mahendra Chaudhari</h2><div class="mt">Patient details</div></div></div>
+<div class="kv"><span>Mobile</span><span id="d-m">9579071284</span></div>
+<div class="kv"><span>Age and gender</span><span id="d-a">18, Male</span></div>
+<div class="kv"><span>Blood group</span><span id="d-b">A+</span></div>
+<div class="kv"><span>Address</span><span id="d-ad">Nashik</span></div>
+<div class="kv"><span>Case papers</span><span id="d-c">5 records</span></div>
+<div class="kv"><span>Next follow-up</span><span id="d-fu">12 Oct 2026</span></div>
+<div class="row g8" style="margin-top:14px"><div class="btn b-f grow" data-go="cases"><svg class="i"><use href="#file"/></svg>Case papers</div><div class="btn b-o grow" data-go="edit"><svg class="i"><use href="#edit"/></svg>Edit</div></div>
+</div>
+</div>
+</div>
+
+<div class="view" id="v-cases">
+<div class="crumb"><a data-go="dash">Dashboard</a> / Case papers</div>
+<div class="row sp" style="margin-bottom:18px"><div class="row g12"><div class="av t-b" style="width:54px;height:54px;font-size:18px">CM</div><div><h1>Chetan Mahendra Chaudhari</h1><div class="mt">18 yrs, Male, A+ - 5 case papers</div></div></div>
+<div class="row g8"><div class="btn b-o" data-open="modal"><svg class="i"><use href="#rep"/></svg>Log follow-up</div><div class="btn b-f" data-go="form"><svg class="i"><use href="#fplus"/></svg>New case paper</div></div></div>
+<div class="split">
+<div><h2 style="margin-bottom:12px">Visit timeline</h2>
+<div class="tl">
+<div class="node g card"><div class="row sp"><span class="nm">Follow-up visit</span><span class="mt">10 Oct 2026, 1:50 pm</span></div><span class="tag t-g" style="margin:8px 0">Better, +40%</span><div class="mt">Remedy: continue current remedy</div></div>
+<div class="node card" data-go="form" style="cursor:pointer"><div class="row sp"><span class="nm">Case paper 2: Acute case paper</span><span class="mt">10 Oct 2026, 1:48 pm</span></div><span class="tag t-b" style="margin:8px 0">Baseline intake</span><div class="mt">Remedy: bh 30C</div><div class="mt" style="color:var(--tx3)">Insomnia, joint pain, menstrual irregularity, allergic rhinitis</div></div>
+<div class="node card" data-go="form" style="cursor:pointer"><div class="row sp"><span class="nm">Case paper 2: Acute case paper</span><span class="mt">10 Oct 2026, 1:47 pm</span></div><span class="tag t-b" style="margin:8px 0">Baseline intake</span><div class="mt">Remedy: bh 30C</div></div>
+<div class="node card" data-go="form" style="cursor:pointer"><div class="row sp"><span class="nm">Case paper 1: Original case paper</span><span class="mt">5 Oct 2026, 11:20 am</span></div><span class="tag t-b" style="margin-top:8px">Constitutional</span></div>
+</div></div>
+<div class="card t-g" style="border:0"><div class="row sp"><b>Overall progress</b><b>+40%</b></div><div class="prog"><i style="width:40%"></i></div><div style="font-size:12px;margin-top:10px">Based on the latest follow-up visit.</div></div>
+</div>
+</div>
+
+<div class="view" id="v-form">
+<div class="crumb"><a data-go="dash">Dashboard</a> / <a data-go="cases">Case papers</a> / Original case paper</div>
+<h1 style="margin-bottom:18px">Case paper 1: Original case paper</h1>
+<div style="display:grid;grid-template-columns:240px minmax(0,1fr);gap:18px;align-items:start">
+<div class="card" style="padding:10px"><div class="steps" id="steps">
+<div class="step on done"><span class="num">1</span>Demographics</div><div class="step"><span class="num">2</span>Chief complaints</div><div class="step"><span class="num">3</span>Past and family history</div><div class="step"><span class="num">4</span>Physical generals</div><div class="step"><span class="num">5</span>Mental generals</div><div class="step"><span class="num">6</span>Thermal and modalities</div></div>
+<div class="mt" style="padding:10px">1 of 6 sections done</div><div class="prog" style="margin:0 10px 8px;background:var(--bg)"><i style="width:17%;background:var(--pri)"></i></div></div>
+<div class="card"><h2>1. Demographics and registry</h2>
+<div class="q">Marital status</div><div class="chips" data-single><span class="chip on">Single</span><span class="chip">Married</span><span class="chip">Divorced</span><span class="chip">Widowed</span><span class="chip">Separated</span></div>
+<div class="q">Referred by</div><div class="chips" data-single><span class="chip on">Self or direct</span><span class="chip">Family</span><span class="chip">Doctor</span><span class="chip">Social media</span><span class="chip">Camp or seminar</span><span class="chip">Other</span></div>
+<div class="q">Occupation</div><div class="chips" data-single><span class="chip on">Desk job</span><span class="chip">Business</span><span class="chip">Homemaker</span><span class="chip">Student</span><span class="chip">Field work</span><span class="chip">Healthcare or teacher</span><span class="chip">Retired</span></div>
+</div></div>
+<div class="foot"><div class="btn b-o">Save draft</div><div class="btn b-f"><svg class="i"><use href="#ok"/></svg>Save case paper</div></div>
+</div>
+
+<div class="view" id="v-edit">
+<div class="crumb"><a data-go="dash">Dashboard</a> / Edit patient</div>
+<h1>Update patient record</h1><div class="mt" style="margin-bottom:18px">Patient details and consultation notes</div>
+<div class="two" style="align-items:start">
+<div class="card"><h2 style="margin-bottom:14px">Patient details</h2>
+<div class="fld"><label>Mobile</label><input class="in" value="9579071288"></div>
+<div class="fld"><label>Full name</label><input class="in" value="Kamalesh Mahendra Chaudhari"></div>
+<div class="two"><div class="fld"><label>Age</label><input class="in" value="20"></div><div class="fld"><label>Blood group</label><select class="in"><option>A+</option><option>B+</option><option>O+</option><option>AB+</option></select></div></div>
+<div class="fld"><label>Gender</label><div class="chips" data-single><span class="chip on">Male</span><span class="chip">Female</span><span class="chip">Other</span></div></div>
+<div class="fld"><label>Address (optional)</label><textarea class="in">Nashik</textarea></div></div>
+<div class="card"><div class="row sp" style="margin-bottom:14px"><h2>Consultation</h2><span class="mt">10 Oct 2026</span></div>
+<div class="fld"><label>Chief complaints and symptoms</label><textarea class="in">Having cough, and headache</textarea></div>
+<div class="fld"><label>Diagnosis and rubrics</label><textarea class="in">Medicine</textarea></div></div></div>
+<div class="foot"><div class="btn b-t" data-go="dash">Cancel</div><div class="btn b-f"><svg class="i"><use href="#ok"/></svg>Save changes</div></div>
+</div>
+
+</div>
+</div>
+
+<div class="modal" id="modal"><div class="dlg">
+<h2 style="font-size:18px;margin-bottom:12px">Log follow-up</h2>
+<div class="stat t-b" style="font-size:12px;margin-bottom:14px">Using data from: Acute case paper and Original case paper (constitutional)</div>
+<div class="mt">How is the patient doing overall?</div>
+<div class="sel-o" data-single><div class="opt"><span>Better</span><span>+70%</span></div><div class="opt on"><span>Better</span><span>+40%</span></div><div class="opt"><span>Unchanged</span><span>0%</span></div><div class="opt bad"><span>Worse</span><span>-20%</span></div></div>
+<div class="fld"><label>Remedy and posology</label><input class="in" value="Continue current remedy"></div>
+<div class="fld"><label>Clinical notes and symptoms</label><textarea class="in" placeholder="Sleep improved, joint pain less"></textarea></div>
+<div class="row g8" style="justify-content:flex-end"><div class="btn b-t" data-close>Cancel</div><div class="btn b-f" data-close><svg class="i"><use href="#ok"/></svg>Save follow-up</div></div>
+</div></div>
+
+<script>
+var $=function(s,r){return(r||document).querySelectorAll(s)};
+function go(v){$('.view').forEach(function(x){x.classList.toggle('on',x.id==='v-'+v)});$('.jump span').forEach(function(x){x.classList.toggle('on',x.dataset.go===v)});$('.nav').forEach(function(x){x.classList.toggle('on',v==='dash'&&x.dataset.go==='dash'&&!x.dataset.filter)});document.querySelector('.content').scrollTop=0}
+function filt(f){$('#filters .chip').forEach(function(c){c.classList.toggle('on',c.dataset.f===f)});$('#rows tr').forEach(function(r){r.style.display=(f==='all'||r.dataset.f.split(' ').indexOf(f)>-1)?'':'none'})}
+document.addEventListener('click',function(e){
+var t=e.target;var g=t.closest('[data-go]');
+if(g){if(g.closest('tr')&&!g.classList.contains('btn')){}else{if(g.dataset.filter)filt(g.dataset.filter);go(g.dataset.go);if(g.dataset.filter){$('.nav').forEach(function(x){x.classList.toggle('on',x===g)})}e.stopPropagation();return}}
+if(t.closest('[data-open]'))$('#modal')[0].classList.add('on');
+if(t.closest('[data-close]')||t===$('#modal')[0])$('#modal')[0].classList.remove('on');
+var s=t.closest('[data-single]');if(s){var o=t.closest('.chip,.opt');if(o){s.querySelectorAll('.on').forEach(function(x){x.classList.remove('on')});o.classList.add('on')}}
+var f=t.closest('#filters .chip');if(f)filt(f.dataset.f);
+var st=t.closest('.step');if(st){$('.step').forEach(function(x){x.classList.remove('on')});st.classList.add('on')}
+var r=t.closest('#rows tr');if(r){$('#rows tr').forEach(function(x){x.classList.remove('sel')});r.classList.add('sel');var d=r.dataset;document.getElementById('d-n').textContent=d.n;document.getElementById('d-av').textContent=d.n.split(' ').slice(0,2).map(function(w){return w[0]}).join('');['m','a','b','ad','c','fu'].forEach(function(k){document.getElementById('d-'+k).textContent=d[k]})}
+});
+document.getElementById('q').addEventListener('input',function(e){var v=e.target.value.toLowerCase();go('dash');$('#rows tr').forEach(function(r){r.style.display=(r.dataset.n+r.dataset.m).toLowerCase().indexOf(v)>-1?'':'none'})});
+</script>
+</body>
+</html>

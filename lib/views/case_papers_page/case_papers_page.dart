@@ -8,7 +8,7 @@ class CasePapersPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => LayoutBuilder(
-    builder: (context, constraints) => constraints.maxWidth >= 1100
+    builder: (context, constraints) => constraints.maxWidth >= 900
         ? const CasePapersPageDesktop()
         : const CasePapersPageMobile(),
   );

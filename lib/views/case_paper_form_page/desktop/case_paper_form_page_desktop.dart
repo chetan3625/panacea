@@ -10,28 +10,45 @@ class CasePaperFormPageDesktop extends StatelessWidget {
   Widget build(BuildContext context) {
     final controller = Get.find<CasePaperController>();
 
+    Future<void> handleSave() async {
+      final success = await controller.saveCasePaper();
+      if (success) {
+        Get.back(result: true);
+      }
+    }
+
     return Scaffold(
       backgroundColor: const Color(0xFFF4F7FA),
       appBar: AppBar(
-        title: const Text(
-          'Case Paper 1: Constitutional Intake',
-          style: TextStyle(fontWeight: FontWeight.w600),
+        title: Obx(
+          () => Text(
+            controller.selectedCasePaperType.value,
+            style: const TextStyle(fontWeight: FontWeight.w600),
+          ),
         ),
         centerTitle: false,
         elevation: 0,
         backgroundColor: Colors.white,
         foregroundColor: Colors.black87,
-        actions: [
-          FilledButton.tonalIcon(
-            onPressed: controller.saveCasePaper,
-            icon: const Icon(Icons.save_rounded, size: 18),
-            label: const Text('Save Draft'),
-          ),
-          const SizedBox(width: 24),
-        ],
       ),
       // Renders the shared content with horizontal rows (isCompact: false)
       body: const CasePaperFormPageContent(isCompact: false),
+      bottomNavigationBar: SafeArea(
+        top: false,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 12),
+          decoration: const BoxDecoration(color: Colors.white, border: Border(top: BorderSide(color: Color(0xFFE4E9F1)))),
+          child: Row(mainAxisAlignment: MainAxisAlignment.end, children: [
+            OutlinedButton(onPressed: Get.back, child: const Text('Back')),
+            const SizedBox(width: 10),
+            Obx(() => FilledButton.icon(
+              onPressed: controller.isSaving.value ? null : handleSave,
+              icon: controller.isSaving.value ? const SizedBox.square(dimension: 16, child: CircularProgressIndicator(strokeWidth: 2)) : const Icon(Icons.check),
+              label: Text(controller.isSaving.value ? 'Saving…' : 'Save Case Paper'),
+            )),
+          ]),
+        ),
+      ),
     );
   }
 }

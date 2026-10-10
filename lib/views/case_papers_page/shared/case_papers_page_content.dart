@@ -7,7 +7,11 @@ import 'package:panacea/controller/auth_session.dart';
 import 'package:panacea/constants/app_routes.dart';
 import 'package:panacea/services/api_service.dart';
 import 'package:panacea/services/case_paper_pdf_service.dart';
+import 'package:panacea/controller/case_paper_controller.dart';
+import 'package:panacea/components/case_paper_components.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:panacea/theme/app_theme.dart';
+import 'package:panacea/theme/app_widgets.dart';
 
 class CasePapersPageContent extends StatefulWidget {
   const CasePapersPageContent({super.key});
@@ -230,10 +234,10 @@ class _CasePapersPageContentState extends State<CasePapersPageContent> {
   late Map<String, dynamic> _patient;
   String? _token;
   String? _editingId;
-  Map<String, dynamic> _draft = {};
+  final Map<String, dynamic> _draft = {};
   int _openFrame = 0;
   bool _isSaving = false;
-  bool _isNewDraft = false;
+  final bool _isNewDraft = false;
   String _draftSaveStatus = 'Draft not saved';
   Timer? _draftAutosaveTimer;
 
@@ -242,6 +246,10 @@ class _CasePapersPageContentState extends State<CasePapersPageContent> {
 
   String _existingDraftStorageKey(String caseId) =>
       'panacea.casePaperDraft.${_patient['_id'] ?? 'unknown'}.$caseId';
+
+  List<Map<String, dynamic>> _fetchedPapers = [];
+  List<Map<String, dynamic>> _fetchedFollowUps = [];
+  bool _isLoadingPapers = false;
 
   @override
   void initState() {
@@ -258,30 +266,146 @@ class _CasePapersPageContentState extends State<CasePapersPageContent> {
         });
       }
     }
+    _fetchAll();
+  }
+
+  Future<void> _fetchAll() async {
+    await Future.wait([_fetchCasePapers(), _fetchFollowUps()]);
+  }
+
+  Future<void> _fetchCasePapers() async {
+    final patientId = _patient['_id']?.toString();
+    if (patientId == null || patientId.isEmpty) return;
+    if (mounted) setState(() => _isLoadingPapers = true);
+    try {
+      final response = await ApiService.get(
+        '/case-papers/patient/$patientId',
+        token: _token,
+      );
+      final data = jsonDecode(response.body);
+      if (response.statusCode >= 200 &&
+          response.statusCode < 300 &&
+          data['casePapers'] is List) {
+        final list = (data['casePapers'] as List)
+            .whereType<Map>()
+            .map((m) => Map<String, dynamic>.from(m))
+            .toList();
+        if (mounted) {
+          setState(() {
+            _fetchedPapers = list;
+            // Do NOT overwrite _patient['casePapers'] here — the _papers getter
+            // deduplicates both sources, and overwriting risks cross-source mixing.
+          });
+        }
+      }
+    } catch (_) {
+    } finally {
+      if (mounted) setState(() => _isLoadingPapers = false);
+    }
+  }
+
+  Future<void> _fetchFollowUps() async {
+    final patientId = _patient['_id']?.toString();
+    if (patientId == null || patientId.isEmpty) return;
+    try {
+      final response = await ApiService.get(
+        '/follow-ups/patient/$patientId',
+        token: _token,
+      );
+      final data = jsonDecode(response.body);
+      if (response.statusCode >= 200 &&
+          response.statusCode < 300 &&
+          data['followUps'] is List) {
+        final list = (data['followUps'] as List)
+            .whereType<Map>()
+            .map((m) => Map<String, dynamic>.from(m))
+            .toList();
+        if (mounted) setState(() => _fetchedFollowUps = list);
+      }
+    } catch (_) {}
   }
 
   List<Map<String, dynamic>> get _papers {
-    final papers = _patient['casePapers'];
-    if (papers is! List) return [];
-    return papers.whereType<Map>().map(Map<String, dynamic>.from).toList();
+    List<Map<String, dynamic>> raw;
+
+    if (_fetchedPapers.isNotEmpty) {
+      // Standalone CasePaper collection docs are authoritative — use only these.
+      raw = _fetchedPapers;
+    } else if (_isLoadingPapers) {
+      // Still loading — show nothing to avoid flash of embedded snapshots
+      return [];
+    } else {
+      // Nothing fetched yet (e.g. patient has no _id) — fall back to embedded
+      final papers = _patient['casePapers'];
+      if (papers is! List) return [];
+      raw = papers
+          .whereType<Map>()
+          .map(Map<String, dynamic>.from)
+          .toList();
+    }
+
+    // Deduplicate by the canonical CasePaper _id.
+    // caseId is the authoritative link (server sets snapshot.caseId = casePaper._id).
+    // Fall back to _id only when caseId is absent (e.g. very old records).
+    final seen = <String>{};
+    final deduped = <Map<String, dynamic>>[];
+    for (final paper in raw) {
+      final id = (paper['caseId'] ?? paper['_id'] ?? '').toString();
+      if (id.isNotEmpty && seen.contains(id)) continue;
+      if (id.isNotEmpty) seen.add(id);
+      deduped.add(paper);
+    }
+
+    // Sort newest-first by createdAt, falling back to date string.
+    deduped.sort((a, b) {
+      final dateA = DateTime.tryParse(a['createdAt']?.toString() ?? '');
+      final dateB = DateTime.tryParse(b['createdAt']?.toString() ?? '');
+      if (dateA != null && dateB != null) return dateB.compareTo(dateA);
+      final dataA = a['data'] is Map ? a['data'] as Map : a;
+      final dataB = b['data'] is Map ? b['data'] as Map : b;
+      return (dataB['date']?.toString() ?? '')
+          .compareTo(dataA['date']?.toString() ?? '');
+    });
+
+    return deduped;
   }
 
-  Future<void> _startNewPaper() async {
-    final savedPatient = await Get.toNamed(
+  Future<void> _startNewPaper([String? paperType]) async {
+    final patientId = _patient['_id']?.toString() ?? '';
+    final result = await Get.toNamed(
       AppRoutes.casePaperForm,
-      arguments: {'token': _token, 'patient': _patient, 'startNew': true},
+      arguments: {
+        'token': _token,
+        'patient': _patient,
+        'patientId': patientId,
+        'paperType':
+            paperType ?? 'Case Paper 1:(Constitutional)',
+      },
     );
-    if (!mounted || savedPatient is! Map) return;
-    setState(() => _patient = Map<String, dynamic>.from(savedPatient));
+    if (result == true) {
+      await _fetchAll();
+      _showMessage('Saved');
+    }
   }
 
   Future<void> _editPaper(Map<String, dynamic> paper) async {
-    final savedPatient = await Get.toNamed(
+    final patientId = _patient['_id']?.toString() ?? '';
+    final caseId =
+        paper['_id']?.toString() ?? paper['caseId']?.toString() ?? '';
+    final result = await Get.toNamed(
       AppRoutes.casePaperForm,
-      arguments: {'token': _token, 'patient': _patient, 'paper': paper},
+      arguments: {
+        'token': _token,
+        'patient': _patient,
+        'patientId': patientId,
+        'casePaperId': caseId,
+        'paper': paper,
+      },
     );
-    if (!mounted || savedPatient is! Map) return;
-    setState(() => _patient = Map<String, dynamic>.from(savedPatient));
+    if (result == true) {
+      await _fetchAll();
+      _showMessage('Saved');
+    }
   }
 
   void _queueDraftAutosave() {
@@ -1291,75 +1415,252 @@ class _CasePapersPageContentState extends State<CasePapersPageContent> {
   }
 
   Widget _buildPaperList() {
-    final patientSummary = Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          _patient['name']?.toString() ?? 'Patient',
-          style: Theme.of(context).textTheme.headlineSmall,
-        ),
-        Text('${_papers.length} case paper${_papers.length == 1 ? '' : 's'}'),
-      ],
+    final patientSummary = ConstrainedBox(
+      constraints: const BoxConstraints(maxWidth: 320),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            _patient['name']?.toString() ?? 'Patient',
+            style: Theme.of(context).textTheme.headlineSmall,
+            overflow: TextOverflow.ellipsis,
+          ),
+          Text('${_papers.length} case paper${_papers.length == 1 ? '' : 's'}'),
+        ],
+      ),
     );
-    final newPaperButton = FilledButton.icon(
-      onPressed: _startNewPaper,
-      icon: const Icon(Icons.add),
-      label: const Text('New Case Paper 1'),
-    );
+
+    // Build timeline: merge case papers and follow-ups, sorted newest first
+    final List<Map<String, dynamic>> timelineVisits = [];
+
+    // Add case papers
+    for (final paper in _papers) {
+      final data = paper['data'] is Map ? paper['data'] as Map : paper;
+      final date = data['date']?.toString() ?? '';
+      final complaint = data['chiefComplaint']?.toString() ?? data['chiefComplaints']?.toString() ?? '';
+      final title = data['paperType']?.toString() ??
+          paper['paperType']?.toString() ??
+          'Case Paper';
+      // Build remedy string from prescription if available
+      String remedy = '';
+      if (data['remedy'] != null && data['remedy'].toString().isNotEmpty) {
+        remedy = data['remedy'].toString();
+      } else if (paper['prescription'] is List && (paper['prescription'] as List).isNotEmpty) {
+        final first = (paper['prescription'] as List).first;
+        if (first is Map) {
+          remedy = '${first['name'] ?? ''} ${first['potency'] ?? ''}'.trim();
+        }
+      }
+      final isFollowUp = data['isFollowUp'] == true ||
+          title == 'Follow-Up Visit' ||
+          paper['paperType'] == 'Follow-Up Visit';
+      final status = data['status']?.toString().isNotEmpty == true
+          ? data['status'].toString()
+          : (isFollowUp ? 'Ameliorated (+30%)' : 'Baseline Intake');
+
+      timelineVisits.add({
+        'date': date,
+        'time': data['time']?.toString() ?? '',
+        'title': title,
+        'status': status,
+        'remedy': remedy,
+        'isFollowUp': isFollowUp,
+        'paperData': paper,
+        'chiefComplaint': complaint,
+      });
+    }
+
+    // Add real follow-ups from backend (newest first from server already, but sort defensively)
+    final sortedFollowUps = [..._fetchedFollowUps];
+    sortedFollowUps.sort((a, b) {
+      final dateA = DateTime.tryParse(a['createdAt']?.toString() ?? '');
+      final dateB = DateTime.tryParse(b['createdAt']?.toString() ?? '');
+      if (dateA != null && dateB != null) return dateB.compareTo(dateA);
+      return (b['date']?.toString() ?? '').compareTo(a['date']?.toString() ?? '');
+    });
+
+    for (final fu in sortedFollowUps) {
+      final date = fu['date']?.toString() ?? '';
+      final status = fu['progressionStatus']?.toString() ?? fu['status']?.toString() ?? '';
+      final remedy = fu['remedyPrescribed']?.toString() ?? '';
+      final notes = fu['clinicalNotes']?.toString() ?? '';
+      timelineVisits.add({
+        'date': date,
+        'time': fu['time']?.toString() ?? '',
+        'title': 'Follow-Up Visit',
+        'status': status,
+        'remedy': remedy,
+        'isFollowUp': true,
+        'followUpData': fu,
+        'chiefComplaint': notes,
+        'createdAt': fu['createdAt']?.toString() ?? '',
+      });
+    }
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        if (_isLoadingPapers) const LinearProgressIndicator(),
         Wrap(
           alignment: WrapAlignment.spaceBetween,
           crossAxisAlignment: WrapCrossAlignment.center,
           spacing: 12,
           runSpacing: 8,
-          children: [patientSummary, newPaperButton],
-        ),
-        const SizedBox(height: 20),
-        if (_papers.isEmpty)
-          const Padding(
-            padding: EdgeInsets.symmetric(vertical: 48),
-            child: Center(child: Text('No case papers for this patient yet.')),
-          ),
-        ..._papers.map((paper) {
-          final data = paper['data'] is Map ? paper['data'] as Map : const {};
-          final date = data['date']?.toString() ?? 'Date not set';
-          final caseId = data['caseId']?.toString();
-          final complaint = data['chiefComplaint']?.toString() ?? '';
-          return Card(
-            margin: const EdgeInsets.only(bottom: 10),
-            child: ListTile(
-              leading: const Icon(Icons.assignment_outlined),
-              title: Text('Case Paper 1  •  $date'),
-              subtitle: Text(
-                [
-                  if (caseId?.isNotEmpty == true) 'ID: $caseId',
-                  if (complaint.isNotEmpty) complaint,
-                ].join('  •  '),
-              ),
-              isThreeLine: caseId?.isNotEmpty == true && complaint.isNotEmpty,
-              onTap: () => _editPaper(paper),
-              trailing: PopupMenuButton<String>(
-                tooltip: 'Case paper actions',
-                onSelected: (action) {
-                  if (action == 'edit') _editPaper(paper);
-                  if (action == 'delete') _deletePaper(paper);
-                },
-                itemBuilder: (context) => const [
-                  PopupMenuItem(value: 'edit', child: Text('Edit paper')),
-                  PopupMenuItem(value: 'delete', child: Text('Delete paper')),
-                ],
+          children: [
+            patientSummary,
+            PopupMenuButton<String>(
+              tooltip: 'Select Case Paper Type',
+              onSelected: (type) {
+                String selectedType =
+                    'Case Paper 1: Original Case Paper (Constitutional)';
+                if (type == 'cp2') {
+                  selectedType = 'Case Paper 2: Acute Case Paper';
+                } else if (type == 'cp3') {
+                  selectedType = 'Case Paper 3: Thyroid Case Paper';
+                }
+                _startNewPaper(selectedType);
+              },
+              itemBuilder: (context) => const [
+                PopupMenuItem(
+                  value: 'cp1',
+                  child: ListTile(
+                    leading: Icon(Icons.note_alt_outlined, color: AppColors.primary),
+                    title: Text('Case Paper 1: Original Case Paper'),
+                    subtitle: Text('Constitutional Comprehensive Intake'),
+                  ),
+                ),
+                PopupMenuItem(
+                  value: 'cp2',
+                  child: ListTile(
+                    leading: Icon(Icons.flash_on_rounded, color: Colors.orange),
+                    title: Text('Case Paper 2: Acute Case Paper'),
+                    subtitle: Text('Quick Intake for Acute Conditions'),
+                  ),
+                ),
+                PopupMenuItem(
+                  value: 'cp3',
+                  child: ListTile(
+                    leading: Icon(Icons.flutter_dash_rounded, color: Colors.purple),
+                    title: Text('Case Paper 3: Thyroid Case Paper'),
+                    subtitle: Text('Specialized Endocrinology Intake'),
+                  ),
+                ),
+              ],
+                child: FilledButton(
+                  onPressed: null,
+                  style: FilledButton.styleFrom(disabledBackgroundColor: AppColors.primary, disabledForegroundColor: Colors.white),
+                child: const Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.add, size: 18),
+                    SizedBox(width: 4),
+                    Text('New Case Paper'),
+                    SizedBox(width: 2),
+                    Icon(Icons.arrow_drop_down, size: 18),
+                  ],
+                ),
               ),
             ),
-          );
-        }),
+            OutlinedButton.icon(
+              onPressed: () => _showLogFollowUpDialog(context),
+              icon: const Icon(Icons.track_changes_rounded, color: AppColors.primary),
+              label: const Text('Log Follow-Up Visit'),
+              style: OutlinedButton.styleFrom(
+                side: const BorderSide(color: AppColors.primary),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 16),
+        _buildOverallProgressCard(),
+        const SizedBox(height: 16),
+        Row(
+          children: [
+            const Icon(Icons.directions_railway_filled, color: AppColors.primary),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                'Patient Visit & Follow-Up Timeline',
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 4),
+        Text(
+          'Tap any station node on the vertical train track to view that day\'s complete Case Paper / Follow-Up.',
+          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: AppColors.secondary,
+              ),
+        ),
+        const SizedBox(height: 16),
+        WhereIsMyTrainTimeline(
+          visits: timelineVisits..sort((a, b) {
+            DateTime parseDate(Map<String, dynamic> m) {
+              final ca = m['createdAt'] ?? (m['paperData'] is Map ? m['paperData']['createdAt'] : null);
+              if (ca != null) {
+                final p = DateTime.tryParse(ca.toString());
+                if (p != null) return p;
+              }
+              final d = m['date']?.toString().trim() ?? '';
+              final parts = d.split('/');
+              if (parts.length == 3) {
+                final day = int.tryParse(parts[0]);
+                final month = int.tryParse(parts[1]);
+                final year = int.tryParse(parts[2]);
+                if (day != null && month != null && year != null) {
+                  return DateTime(year, month, day);
+                }
+              }
+              return DateTime.tryParse(d) ?? DateTime(2000);
+            }
+            return parseDate(b).compareTo(parseDate(a));
+          }),
+          onTapVisit: (visit) {
+            _showVisitDetailsModal(context, visit);
+          },
+        ),
       ],
     );
   }
 
+  Widget _buildOverallProgressCard() {
+    final latest = _fetchedFollowUps.isEmpty ? null : _fetchedFollowUps.first;
+    final status = latest?['progressionStatus']?.toString() ?? latest?['status']?.toString() ?? 'No follow-up recorded';
+    final percentMatch = RegExp(r'([+-]?\d+)\s*%').firstMatch(status);
+    final percent = int.tryParse(percentMatch?.group(1) ?? '') ?? 0;
+    const color = AppColors.success;
+    const tint = AppColors.successLight;
+    return AppCard(
+      color: tint,
+      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        Row(children: [
+          Expanded(child: Text('Overall progress', style: Theme.of(context).textTheme.titleMedium)),
+          Text(percent == 0 ? status : '${percent > 0 ? '+' : ''}$percent%', maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: color, fontWeight: FontWeight.w600)),
+        ]),
+        const SizedBox(height: 8),
+        LinearProgressIndicator(value: (0.5 + percent / 200).clamp(0.0, 1.0), color: color, backgroundColor: AppColors.card),
+        const SizedBox(height: 8),
+        Text(latest == null ? 'Progress will appear after the first follow-up.' : 'Based on the latest follow-up visit.', style: Theme.of(context).textTheme.bodySmall),
+      ]),
+    );
+  }
+
   Widget _buildEditor() {
+    // Determine the title from the currently editing paper's type
+    final currentPaperTitle = () {
+      if (_editingId == null) return 'Case Paper';
+      final match = _papers.where((p) =>
+          (p['caseId'] ?? p['_id'])?.toString() == _editingId).toList();
+      if (match.isNotEmpty) {
+        final data = match.first['data'] is Map ? match.first['data'] as Map : match.first;
+        return data['paperType']?.toString() ?? match.first['paperType']?.toString() ?? 'Case Paper';
+      }
+      return _draft['paperType']?.toString() ?? 'Case Paper';
+    }();
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -1372,8 +1673,9 @@ class _CasePapersPageContentState extends State<CasePapersPageContent> {
             ),
             Expanded(
               child: Text(
-                'Case Paper 1',
+                currentPaperTitle,
                 style: Theme.of(context).textTheme.headlineSmall,
+                overflow: TextOverflow.ellipsis,
               ),
             ),
             Text('Frame ${_openFrame + 1} of ${_frames.length}'),
@@ -1414,6 +1716,19 @@ class _CasePapersPageContentState extends State<CasePapersPageContent> {
 
   Widget _buildDesktopEditor() {
     final completed = _completedFrameCount;
+
+    // Determine title from currently editing paper
+    final currentPaperTitle = () {
+      if (_editingId == null) return 'Case Paper';
+      final match = _papers.where((p) =>
+          (p['caseId'] ?? p['_id'])?.toString() == _editingId).toList();
+      if (match.isNotEmpty) {
+        final data = match.first['data'] is Map ? match.first['data'] as Map : match.first;
+        return data['paperType']?.toString() ?? match.first['paperType']?.toString() ?? 'Case Paper';
+      }
+      return _draft['paperType']?.toString() ?? 'Case Paper';
+    }();
+
     return Row(
       children: [
         SizedBox(
@@ -1425,8 +1740,10 @@ class _CasePapersPageContentState extends State<CasePapersPageContent> {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 Text(
-                  'Case Paper 1',
+                  currentPaperTitle,
                   style: Theme.of(context).textTheme.titleLarge,
+                  overflow: TextOverflow.ellipsis,
+                  maxLines: 2,
                 ),
                 const SizedBox(height: 8),
                 Text('$completed/8 completed'),
@@ -1547,7 +1864,8 @@ class _CasePapersPageContentState extends State<CasePapersPageContent> {
           if (closeAfterSave) _editingId = null;
         });
       }
-      if (showFeedback) _showMessage('Case Paper 1 saved.');
+      final paperType = _draft['paperType']?.toString() ?? 'Case Paper';
+      if (showFeedback) _showMessage('$paperType saved.');
       return true;
     } catch (error) {
       if (mounted) setState(() => _draftSaveStatus = 'Save failed');
@@ -1597,15 +1915,18 @@ class _CasePapersPageContentState extends State<CasePapersPageContent> {
       tooltip: 'Switch Case Paper',
       onSelected: _switchCasePaper,
       itemBuilder: (context) => [
-        const PopupMenuItem(value: '__new__', child: Text('New Case Paper 1')),
+        const PopupMenuItem(value: '__new__', child: Text('New Case Paper')),
         if (_papers.isNotEmpty) const PopupMenuDivider(),
         ..._papers.map((paper) {
           final caseId = (paper['caseId'] ?? paper['_id']).toString();
-          final data = paper['data'] is Map ? paper['data'] as Map : const {};
+          final data = paper['data'] is Map ? paper['data'] as Map : paper;
           final date = data['date']?.toString() ?? 'Undated';
+          final type = data['paperType']?.toString() ??
+              paper['paperType']?.toString() ??
+              'Case Paper';
           return PopupMenuItem(
             value: caseId,
-            child: Text('Case Paper 1 · $date'),
+            child: Text('$type · $date'),
           );
         }),
       ],
@@ -1701,12 +2022,15 @@ class _CasePapersPageContentState extends State<CasePapersPageContent> {
   }
 
   Future<void> _deletePaper(Map<String, dynamic> paper) async {
+    final caseId = paper['_id']?.toString() ?? paper['caseId']?.toString();
+    if (caseId == null || caseId.isEmpty) return;
+
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Delete case paper?'),
         content: const Text(
-          'This case paper will be removed from the patient record.',
+          'This case paper will be permanently removed from the patient record.',
         ),
         actions: [
           TextButton(
@@ -1715,23 +2039,21 @@ class _CasePapersPageContentState extends State<CasePapersPageContent> {
           ),
           FilledButton(
             onPressed: () => Navigator.pop(context, true),
+            style: FilledButton.styleFrom(backgroundColor: Colors.redAccent),
             child: const Text('Delete'),
           ),
         ],
       ),
     );
     if (confirmed != true) return;
-    final papers = _papers
-      ..removeWhere(
-        (item) => item['caseId']?.toString() == paper['caseId']?.toString(),
-      );
-    try {
-      await _persistPapers(papers);
-      _showMessage('Case paper deleted.');
-    } catch (error) {
-      _showMessage(
-        'Could not delete case paper: ${error.toString().replaceFirst('Exception: ', '')}',
-      );
+
+    final controller = Get.isRegistered<CasePaperController>()
+        ? Get.find<CasePaperController>()
+        : Get.put(CasePaperController());
+
+    final success = await controller.deleteCasePaper(caseId);
+    if (success) {
+      await _fetchAll();
     }
   }
 
@@ -1767,7 +2089,7 @@ class _CasePapersPageContentState extends State<CasePapersPageContent> {
   Widget build(BuildContext context) {
     final isEditing = _editingId != null;
     final viewportWidth = MediaQuery.sizeOf(context).width;
-    final isDesktop = viewportWidth >= 1100;
+    final isDesktop = viewportWidth >= 900;
     final isCompact = viewportWidth < 600;
     final contentWidth = viewportWidth < 1120 ? viewportWidth : 1120.0;
     final footerWidth = (contentWidth - 264).clamp(0.0, 920.0).toDouble();
@@ -1869,6 +2191,484 @@ class _CasePapersPageContentState extends State<CasePapersPageContent> {
                     ),
                   )
           : null,
+    );
+  }
+
+  void _showLogFollowUpDialog(BuildContext context) {
+    final statusController = TextEditingController(text: 'Better (+40% Ameliorated)');
+    final remedyController = TextEditingController(text: 'Continue Current Remedy');
+    final notesController = TextEditingController();
+    String selectedStatus = 'Better +40%';
+    final activePapers = _papers.map((paper) {
+      final data = paper['data'] is Map ? paper['data'] as Map : paper;
+      return data['paperType']?.toString() ?? paper['paperType']?.toString() ?? 'Case Paper';
+    }).toSet().toList();
+    const statuses = <String, String>{
+      'Better +70%': 'Better (+70% Ameliorated)',
+      'Better +40%': 'Better (+40% Ameliorated)',
+      'Unchanged 0%': 'Unchanged (Status Quo 0%)',
+      'Worse -20%': 'Worse (-20% Aggravated)',
+    };
+
+    if (MediaQuery.sizeOf(context).width >= 900) {
+      showDialog<void>(
+        context: context,
+        builder: (dialogContext) => StatefulBuilder(
+          builder: (context, setState) => AlertDialog(
+            title: _followUpTitle(context),
+            content: SizedBox(
+              width: 480,
+              child: _followUpForm(
+                activePapers, statuses, selectedStatus,
+                (value) => setState(() {
+                  selectedStatus = value;
+                  statusController.text = statuses[value]!;
+                }),
+                remedyController, notesController,
+              ),
+            ),
+            actions: _followUpActions(dialogContext, statusController, remedyController, notesController),
+          ),
+        ),
+      );
+    } else {
+      showModalBottomSheet<void>(
+        context: context,
+        isScrollControlled: true,
+        backgroundColor: Colors.transparent,
+        builder: (sheetContext) => StatefulBuilder(
+          builder: (context, setState) => SafeArea(
+            top: false,
+            child: Container(
+              height: MediaQuery.sizeOf(sheetContext).height * .88,
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+              ),
+              padding: EdgeInsets.fromLTRB(20, 14, 20, 16),
+              child: Column(children: [
+                Container(width: 36, height: 4, decoration: BoxDecoration(color: Colors.black12, borderRadius: BorderRadius.all(Radius.circular(4)))),
+                const SizedBox(height: 12),
+                _followUpTitle(context),
+                const SizedBox(height: 14),
+                Expanded(child: _followUpForm(
+                  activePapers, statuses, selectedStatus,
+                  (value) => setState(() {
+                    selectedStatus = value;
+                    statusController.text = statuses[value]!;
+                  }),
+                  remedyController, notesController,
+                )),
+                const SizedBox(height: 8),
+                Row(mainAxisAlignment: MainAxisAlignment.end, children: _followUpActions(sheetContext, statusController, remedyController, notesController)),
+              ]),
+            ),
+          ),
+        ),
+      );
+    }
+  }
+
+  Widget _followUpTitle(BuildContext context) => Row(children: [
+    const Icon(Icons.track_changes_rounded, color: AppColors.primary),
+    const SizedBox(width: 8),
+    Expanded(child: Text('Log follow-up', maxLines: 1, overflow: TextOverflow.ellipsis, style: Theme.of(context).textTheme.titleLarge)),
+  ]);
+
+  Widget _followUpForm(
+    List<String> activePapers,
+    Map<String, String> statuses,
+    String selectedStatus,
+    ValueChanged<String> onStatusSelected,
+    TextEditingController remedyController,
+    TextEditingController notesController,
+  ) => SingleChildScrollView(child: Column(
+    crossAxisAlignment: CrossAxisAlignment.stretch,
+    children: [
+      Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(color: AppColors.primaryLight, borderRadius: BorderRadius.circular(12)),
+        child: Text(
+          activePapers.isEmpty ? 'Using data from: No case papers yet.' : 'Using data from: ${activePapers.join(' and ')}',
+          maxLines: 3,
+          overflow: TextOverflow.ellipsis,
+          style: const TextStyle(fontSize: 12, color: AppColors.primary),
+        ),
+      ),
+      const SizedBox(height: 16),
+      const Text('How is the patient doing overall?'),
+      const SizedBox(height: 8),
+      ...statuses.keys.map((label) {
+        final isSelected = selectedStatus == label;
+        final isWorse = label.startsWith('Worse');
+        final color = isWorse ? AppColors.danger : AppColors.success;
+        final light = isWorse ? AppColors.dangerLight : AppColors.successLight;
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 6),
+          child: Material(
+            color: isSelected ? light : Colors.white,
+            borderRadius: BorderRadius.circular(12),
+            child: InkWell(
+              borderRadius: BorderRadius.circular(12),
+              onTap: () => onStatusSelected(label),
+              child: Container(
+                constraints: const BoxConstraints(minHeight: 44),
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                decoration: BoxDecoration(borderRadius: BorderRadius.circular(12), border: Border.all(color: isSelected ? color : AppColors.border)),
+                child: Row(children: [
+                  Expanded(child: Text(label.split(' ').first == 'Better' ? 'Better' : label.split(' ').first, overflow: TextOverflow.ellipsis, style: TextStyle(color: isSelected ? color : null))),
+                  Text(label.split(' ').last, style: TextStyle(color: isSelected ? color : null)),
+                ]),
+              ),
+            ),
+          ),
+        );
+      }),
+      const SizedBox(height: 10),
+      TextField(controller: remedyController, textInputAction: TextInputAction.next, decoration: const InputDecoration(labelText: 'Remedy and posology')),
+      const SizedBox(height: 12),
+      TextField(controller: notesController, maxLines: 3, textInputAction: TextInputAction.newline, decoration: const InputDecoration(labelText: 'Clinical notes and symptoms')),
+    ],
+  ));
+
+  List<Widget> _followUpActions(
+    BuildContext dialogContext,
+    TextEditingController statusController,
+    TextEditingController remedyController,
+    TextEditingController notesController,
+  ) => [
+    TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text('Cancel')),
+    FilledButton.icon(
+      onPressed: () => _saveFollowUp(dialogContext, statusController, remedyController, notesController),
+      icon: const Icon(Icons.check),
+      label: const Text('Save follow-up'),
+    ),
+  ];
+
+  Future<void> _saveFollowUp(
+    BuildContext dialogContext,
+    TextEditingController statusController,
+    TextEditingController remedyController,
+    TextEditingController notesController,
+  ) async {
+    final patientId = _patient['_id']?.toString();
+    if (patientId == null || patientId.isEmpty) {
+      Navigator.pop(dialogContext);
+      _showMessage('Cannot log follow-up: patient ID is missing.');
+      return;
+    }
+    final now = DateTime.now();
+    final dateStr = '${now.day}/${now.month}/${now.year}';
+    final timeStr = '${now.hour}:${now.minute.toString().padLeft(2, '0')}';
+    Navigator.pop(dialogContext);
+    try {
+      final response = await ApiService.post('/follow-ups', {
+        'patientId': patientId,
+        'progressionStatus': statusController.text,
+        'remedyPrescribed': remedyController.text,
+        'clinicalNotes': notesController.text,
+        'date': dateStr,
+        'time': timeStr,
+      }, token: _token);
+      final data = jsonDecode(response.body);
+      if (response.statusCode >= 200 && response.statusCode < 300) {
+        await _fetchFollowUps();
+        if (mounted) _showMessage('Follow-Up logged successfully!');
+      } else if (mounted) {
+        _showMessage('Failed to save follow-up: ${data['message'] ?? 'Unknown error'}');
+      }
+    } catch (_) {
+      final localFu = {
+        '_id': 'followup-${now.millisecondsSinceEpoch}',
+        'patientId': patientId,
+        'progressionStatus': statusController.text,
+        'remedyPrescribed': remedyController.text,
+        'clinicalNotes': notesController.text,
+        'date': dateStr,
+        'time': timeStr,
+        'createdAt': now.toIso8601String(),
+      };
+      if (mounted) setState(() => _fetchedFollowUps.insert(0, localFu));
+    }
+  }
+
+  void _showVisitDetailsModal(
+    BuildContext context,
+    Map<String, dynamic> visit,
+  ) {
+    int activeSegment = 0; // 0 = Segment 1: Graph, 1 = Segment 2: Details
+
+    // Build chronological timeline visits array for chart plotting — only real data
+    final List<Map<String, dynamic>> timelineVisits = [];
+    for (final paper in _papers) {
+      final data = paper['data'] is Map ? paper['data'] as Map : paper;
+      final date = data['date']?.toString() ?? '';
+      final complaint = data['chiefComplaint']?.toString() ?? data['chiefComplaints']?.toString() ?? '';
+      final title = data['paperType']?.toString() ?? paper['paperType']?.toString() ?? 'Case Paper';
+      String remedy = '';
+      if (data['remedy'] != null && data['remedy'].toString().isNotEmpty) {
+        remedy = data['remedy'].toString();
+      } else if (paper['prescription'] is List && (paper['prescription'] as List).isNotEmpty) {
+        final first = (paper['prescription'] as List).first;
+        if (first is Map) remedy = '${first['name'] ?? ''} ${first['potency'] ?? ''}'.trim();
+      }
+      timelineVisits.add({
+        'date': date,
+        'time': data['time']?.toString() ?? '',
+        'title': title,
+        'status': 'Baseline Intake',
+        'remedy': remedy,
+        'isFollowUp': false,
+        'chiefComplaint': complaint,
+      });
+    }
+    for (final fu in _fetchedFollowUps) {
+      timelineVisits.add({
+        'date': fu['date']?.toString() ?? '',
+        'time': fu['time']?.toString() ?? '',
+        'title': 'Follow-Up Visit',
+        'status': fu['progressionStatus']?.toString() ?? '',
+        'remedy': fu['remedyPrescribed']?.toString() ?? '',
+        'isFollowUp': true,
+      });
+    }
+
+    // Build gathered case papers list from real data
+    final gatheredPapersBullets = _papers.isEmpty
+        ? 'No case papers recorded yet.'
+        : _papers.map((p) {
+            final data = p['data'] is Map ? p['data'] as Map : p;
+            final type = data['paperType']?.toString() ?? p['paperType']?.toString() ?? 'Case Paper';
+            return '• $type';
+          }).join('\n');
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) {
+        final title = visit['title']?.toString() ?? 'Visit Record';
+        final date = visit['date']?.toString() ?? '';
+        final time = visit['time']?.toString() ?? '';
+        final status = visit['status']?.toString() ?? '';
+        final remedy = visit['remedy']?.toString() ?? '';
+
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            return Container(
+              height: MediaQuery.of(context).size.height * 0.75,
+              padding: const EdgeInsets.all(24.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // --- Header ---
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Expanded(
+                        child: Row(
+                          children: [
+                            const Icon(
+                              Icons.directions_railway_filled,
+                              color: AppColors.primary,
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                title,
+                                overflow: TextOverflow.ellipsis,
+                                style: Theme.of(context)
+                                    .textTheme
+                                    .headlineSmall
+                                    ?.copyWith(fontWeight: FontWeight.bold),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          if (visit['paperData'] != null)
+                            IconButton(
+                              tooltip: 'Delete Case Paper',
+                              icon: const Icon(Icons.delete_outline, color: Colors.red),
+                              onPressed: () {
+                                Navigator.pop(context);
+                                _deletePaper(visit['paperData'] as Map<String, dynamic>);
+                              },
+                            ),
+                          IconButton(
+                            onPressed: () => Navigator.pop(context),
+                            icon: const Icon(Icons.close),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  if (date.isNotEmpty)
+                    Text(
+                      'Recorded on $date${time.isNotEmpty ? " at $time" : ""}',
+                      style: TextStyle(color: AppColors.secondary, fontSize: 13),
+                    ),
+                  const SizedBox(height: 16),
+
+                  // --- Segmented Control Switcher ---
+                  SegmentedButton<int>(
+                    showSelectedIcon: false,
+                    segments: const [
+                      ButtonSegment<int>(
+                        value: 0,
+                        icon: Icon(Icons.show_chart_rounded),
+                        label: Text('Growth & Recovery Graph'),
+                      ),
+                      ButtonSegment<int>(
+                        value: 1,
+                        icon: Icon(Icons.receipt_long_rounded),
+                        label: Text('Gathered Details & Notes'),
+                      ),
+                    ],
+                    selected: {activeSegment},
+                    onSelectionChanged: (Set<int> newSelection) {
+                      setModalState(() {
+                        activeSegment = newSelection.first;
+                      });
+                    },
+                  ),
+                  const SizedBox(height: 16),
+
+                  // --- Segment Page Body ---
+                  Expanded(
+                    child: SingleChildScrollView(
+                      child: activeSegment == 0
+                          ? Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                FollowUpGrowthChart(visits: timelineVisits),
+                                const SizedBox(height: 16),
+                                Container(
+                                  padding: const EdgeInsets.all(16),
+                                  decoration: BoxDecoration(
+                                    color: AppColors.background,
+                                    borderRadius: BorderRadius.circular(12),
+                                    border: Border.all(
+                                      color: AppColors.border,
+                                    ),
+                                  ),
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      const Text(
+                                        '📊 Progression & Growth Summary:',
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 8),
+                                      Text(
+                                        '• Total visits recorded: ${timelineVisits.length}\n'
+                                        '• Current Visit Status: ${status.isNotEmpty ? status : "Recorded"}\n'
+                                        '${remedy.isNotEmpty ? "• Prescribed Remedy: $remedy\n" : ""}'
+                                        '• Follow-ups logged: ${_fetchedFollowUps.length}',
+                                        style: TextStyle(
+                                          fontSize: 13,
+                                          color: AppColors.text,
+                                          height: 1.5,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            )
+                          : Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Card(
+                                  elevation: 0,
+                                  color: AppColors.primaryLight,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                    side: const BorderSide(
+                                      color: AppColors.border,
+                                    ),
+                                  ),
+                                  child: Padding(
+                                    padding: const EdgeInsets.all(14.0),
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        const Text(
+                                          'Gathered Patient Case Papers:',
+                                          style: TextStyle(
+                                            fontWeight: FontWeight.bold,
+                                            color: AppColors.primary,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 6),
+                                        Text(
+                                          gatheredPapersBullets,
+                                          style: const TextStyle(fontSize: 12),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(height: 16),
+                                ListTile(
+                                  contentPadding: EdgeInsets.zero,
+                                  leading: const CircleAvatar(
+                                    backgroundColor: AppColors.primaryLight,
+                                    child: Icon(
+                                      Icons.trending_up,
+                                      color: AppColors.primary,
+                                    ),
+                                  ),
+                                  title: const Text('Progression & Growth'),
+                                  subtitle: Text(
+                                    status.isEmpty ? 'Recorded' : status,
+                                  ),
+                                ),
+                                if (remedy.isNotEmpty) ...[
+                                  const Divider(height: 24),
+                                  ListTile(
+                                    contentPadding: EdgeInsets.zero,
+                                    leading: const CircleAvatar(
+                                      backgroundColor: AppColors.primaryLight,
+                                      child: Icon(
+                                        Icons.medication_rounded,
+                                        color: AppColors.primary,
+                                      ),
+                                    ),
+                                    title: const Text('Remedy & Posology Plan'),
+                                    subtitle: Text(remedy),
+                                  ),
+                                ],
+                              ],
+                            ),
+                    ),
+                  ),
+
+                  const SizedBox(height: 12),
+                  SizedBox(
+                    width: double.infinity,
+                    child: FilledButton(
+                      onPressed: () => Navigator.pop(context),
+                      child: const Text('Close Follow-Up Record'),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
     );
   }
 
